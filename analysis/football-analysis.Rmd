@@ -1,0 +1,2401 @@
+---
+title: 'Mineria de dades: PRA2 - Projecte de mineria de dades'
+author: "Autor: Guillem Pla Bertran"
+date: "Desembre 2022"
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    includes:
+      in_header: header.html
+  word_document: default
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "../")
+```
+
+******
+# Resolució de la pràctica 1
+******
+
+## Plantejament del problema
+
+### Context
+
+Una de les virtuts dels esports és que sempre hi ha la possibilitat que un rival teòricament inferior en guanyi al que suposadament és millor. Aquesta incapacitat d'endevinar un resultat és una de les claus que fan que els aficionats segueixin enganxats a les seves pantalles.
+
+Tot i això, els humans tenim tendència a intentar predir el futur. Això passa en tots els camps, i el futbol no se n'escapa. Des de ben aviat, els seguidors fan juguesques per a demostrar qui és el que en sap més. Fins i tot, hi ha persones que es dediquen professionalment al camp de les apostes esportives. 
+
+Els avenços en els camps de l'estadística i l'aprenentatge automàtic han aportat una nova dimensió al món de les prediccions esportives. Ara, durant els partits s'emmagatzemen una gran quantitat de dades que posteriorment són utilitzats per analistes de dades per a desenvolupar models predictius.
+
+En aquest treball, es proposa estudiar dades de futbol per entendre'l millor i per aconseguir un model que permeti predir tant el guanyador del partit com els gols marcats per cada equip.
+
+
+### Objectius
+
+Com ja s'ha comentat anteriorment, una de les tasques és fer un estudi de les dades per a identificar característiques importants (sobre els jugadors, els partits, etc.) que puguin determinar el resultat d'un partit.
+
+Aquesta descripció és molt àmplia i, per tant, cal concretar-la en petites tasques. Ens centrarem principalment en els equips, els jugadors i els entrenadors. Es pot obtenir dades bàsiques, com quins són els que més partits guanyen, més gols marquen, targetes rebudes. Dades una mica més elaborades com intentar conèixer quins són els jugadors i combinacions de jugadors més influents dins del terreny de joc.
+
+A més a més, també pot ser rellevant visualitzar aquestes dades tenint en compte el context d'aquests partits. És a dir, saber si hi ha diferència entre els equips que juguen de local o visitant, veure si l'hora influeix en el nombre de gols marcats, entendre si les diverses lligues i competicions determinen resultats diferents i observar si existeixen diferències entre cada temporada.
+
+Aquesta feina de visualització permetrà conèixer molt millor les dades i facilitar la creació del model de *machine learning*. Com s'ha dit en l'anterior secció, aquest model ha de ser capaç de predir el guanyador d'un partit a partir d'unes dades d'entrada. Per tant, aquest seria un model de classificació.
+
+Addicionalment, també es pot desenvolupar un model que sigui capaç de determinar la quantitat de gols d'un partit i la quantitat de gols marcats per cada equip. En conseqüència, aquest seria un model de regressió.
+
+I finalment, es podria fer una anàlisi no supervisada per intentar agrupar els equips per característiques similars.
+
+
+
+## *Dataset*
+
+### Descripció del joc de dades
+
+El *dataset* escollit per a dur a terme aquest treball és **[European Soccer Database](https://www.kaggle.com/datasets/hugomathien/soccer)**. Aquest joc de dades es troba disponible de forma gratuita a la pàgina web [Kaggle](https://www.kaggle.com). Ha sigut creat especificament per a fer-la servir en projectes d'anàlisi de dades i aprenentatge automàtic. 
+
+Conté més de 25.000 partits, més de 10.000 jugadors, 11 lligues de països europeus, dades des de la temporada 2008/09 fins a la 2015/16, atributs dels jugadors i equips obtinguts del videojoc EA Sports FIFA, alineacions, quotes d'apostes i esdeveniments del partit detallats (tipus de gol, possessió, faltes, centrades, targetes, etc.) de més de 10.000 partits.
+
+Tal com s'explica en la seva descripció, és probable que hi manquin alguns camps. Com per exemple, poden faltar alguns jugadors de les alienacions. Caldrà tenir això present quan es treballi amb el joc de dades.
+
+El fitxer original és una base de dades **SQLite**. Normalment, estem acostumats a treballar directament amb fitxers `.csv` o `.xlsx`, però en el camp de la mineria de dades també és comú treballar directament amb bases de dades.
+
+En total hi ha 7 taules. A continuació, es mostra una descripció del contingut d'aquestes:
+
+
+#### **Country**: {-}
+Conté informació sobre els països.
+
+- 2 variables.
+- 11 registres.
+
+| **Atribut** | **Descripció**         |
+|-------------|------------------------|
+| id          | Identificador del pais |
+| name        | Nom del pais           |
+
+#### **League**: {-}
+Conté informació sobre les lligues disponibles.
+
+- 3 variables.
+- 11 registres.
+
+| **Atribut** | **Descripció**            |
+|-------------|---------------------------|
+| id          | Identificador de la lliga |
+| country_id  | Identificador del pais    |
+| name        | Nom de la lliga           |
+
+#### **Match**: {-}
+Conté informació sobre els partits disponibles.
+
+- 115 variables.
+- 26.000 registres.
+
+| **Atribut**   | **Descripció**                                    |
+|---------------|---------------------------------------------------|
+| id            | Identificador del partit                          |
+| country_id    | Identificador del pais                            |
+| league_id     | Identificador de la lliga                         |
+| season        | Temporada                                         |
+| stage         | Jornada                                           |
+| date          | Data                                              |
+| +team_api_id | Identificador de l'equip local o visitant a l'API  |
+| +team_goal   | Nombre de gols de l'equip local o visitant         |
+| home_player+ | Onze titular de l'equip local                      |
+| away_player+ | Onze titular de l'equip visitant                   |
+| goal          | Nombre de gols. Dades mal formatades              |
+| shoton        | Nombre de tirs a porta. Dades mal formatades      |
+| shotoff       | Nombre de tirs fora de porta. Dades mal formatades|
+| foulcommit    | Nombre de faltes. Dades mal formatades            |
+| card          | Nombre de targetes. Dades mal formatades          |
+| cross         | Nombre de centrades. Dades mal formatades         |
+| corner        | Nombre de córners. Dades mal formatades           |
+| possession    | Dades de possessió. Dades mal formatades          |
+| B365+         | Bet365 quotes de victòria/empat/derrota           |
+| BW+           | Bet&Win quotes de victòria/empat/derrota          |
+| IW+           | Interwetten quotes de victòria/empat/derrota      |
+| LB+           | Ladbrokes quotes de victòria/empat/derrota        |
+| PS+           | Pinnacle quotes de victòria/empat/derrota         |
+| WH+           | William Hill quotes de victòria/empat/derrota     |
+| SJ+           | Stan James quotes de victòria/empat/derrota       |
+| VC+           | VC Bet quotes de victòria/empat/derrota           |
+| GB+           | Game Bookers quotes de victòria/empat/derrota     |
+| BS+           | Blue Square quotes de victòria/empat/derrota      |
+
+El símbol suma '+' de la taula s'ha d'interpretar com a múltiples possibles valors. Es representa d'aquesta forma per a facilitar la llegibilitat de la taula.
+
+#### **Player**: {-}
+Conté informació descriptiva sobre alguns dels jugadors.
+
+- 7 variables.
+- 11.100 registres.
+
+| **Atribut**        | **Descripció**                  |
+|--------------------|---------------------------------|
+| id                 | Identificador del jugador       |
+| player_api_id      | Identificador de l'API          |
+| player_name        | Nom complet del jugador         |
+| player_fifa_api_id | Identificador de l'API del FIFA |
+| birthday           | Data d'aniversari               |
+| height             | Alçada                          |
+| weight             | Pes                             |
+
+#### **Player_Attributes**: {-}
+Conté informació sobre els atributs dels jugadors al videojoc FIFA.
+
+- 42 variables.
+- 184.000 registres
+
+| **Atribut**        | **Descripció**                                      |
+|--------------------|-----------------------------------------------------|
+| id                 | Identificador del jugador                           |
+| player_fifa_api_id | Identificador de l'API del FIFA                     |
+| player_api_id      | Identificador de l'API                              |
+| player_name        | Nom complet del jugador                             |
+| date               | Data                                                |
+| overall_rating     | Qualificació global                                 |
+| potential          | Potencial                                           |
+| preferred_foot     | Peu preferit                                        |
+| +work_rate         | Taxa d'atac/defensa                                 |
+| crossing           | Qualificació de les centrades                       |
+| finishing          | Qualificació definint                               |
+| heading_accuracy   | Precisió amb rematades de cap                       |
+| short_passing      | Qualificació de les passades curtes                 |
+| volleys            | Qualificació de les volees                          |
+| dribbling          | Capacitat per regatejar                             |
+| curve              | Capacitat per xutar amb efecte                      |
+| free_kick_accuracy | Precisió amb els tirs lliures                       |
+| long_passing       | Qualificació de les passades llargues               |
+| ball_control       | Qualificació del control de pilota                  |
+| acceleration       | Qualificació de la capacitat d'accelerar            |
+| sprint_speed       | Velocitat en l'esprint                              |
+| agility            | Agilitat del jugador                                |
+| reactions          | Capacitat de reaccionar                             |
+| balance            | Equilibri                                           |
+| shot_power         | Potència de tir                                     |
+| jumping            | Capacitat de saltar                                 |
+| stamina            | Resistència                                         |
+| strength           | Força                                               |
+| long_shots         | Capacitat de fer tirs llunyans                      |
+| aggression         | Agresivitat                                         |
+| interceptions      | Capacitat d'interceptar una pilota                  |
+| positioning        | Capacitat de situar-se correctament al camp         |
+| vision             | Capacitat de veure els companys                     |
+| penaltis           | Qualificació llençant penaltis                      |
+| marking            | Capacitat de marcar a un oponent                    |
+| standing_tackle    | Capacitat de prendre la pilota dempeus              |
+| sliding_tacke      | Capacitat de prendre la pilota llençant-se al terra |
+| gk_diving          | Qualificació de l'estirada d'un porter              |
+| gk_handing         | Habilitat del porter amb les mans                   |
+| gk_kicking         | Habilitat de xutar d'un porter                      |
+| gk_positioning     | Habilitat d'un porter de col·locar-se correctament  |
+| gk_reflexer        | Reflexes d'un porter                                |
+
+#### **Team**: {-}
+Conté informació molt bàsica sobre els equips.
+
+- 5 variables.
+- 299 registres.
+
+| **Atribut**      | **Descripció**                  |
+|------------------|---------------------------------|
+| id               | Identificador de l'equip        |
+| team_api_id      | Identificador de l'API          |
+| team_fifa_api_id | Identificador de l'API del FIFA |
+| team_long_name   | Nom llarg de l'equip            |
+| team_short_name  | Abreviació del nom de l'equip   |
+
+#### **Team_Attributes**: {-}
+Conté informació sobre estils de joc dels equips.
+
+- 25 variables.
+- 1458 registres.
+
+| **Atribut**                    | **Descripció**                                       |
+|--------------------------------|------------------------------------------------------|
+| id                             | Identificador de l'equip                             |
+| team_fifa_api_id               | Identificador de l'API del FIFA                      |
+| team_api_id                    | Identificador de l'API                               |
+| date                           | Data                                                 |
+| buildUpPlaySpeed               | Velocitat de construcció de joc                      |
+| buildUpPlaySpeedClass          | Tipus de velocitat de construcció de joc             |
+| buildUpPlayDribbling           | Quantitat de regats en la construcció de joc         |
+| buildUpPlayDribblingClass      | Categories de quantitat de regats                    |
+| buildUpPlayPassing             | Quantitat de passades en la construcció de joc       |
+| buildUpPlayPassingClass        | Categories de quantitat de passades                  |
+| buildUpPlayPositioningClass    | Categories de posicionament en la construcció de joc |
+| chanceCreationPassing          | Quantitat de passades                                |
+| chanceCreationPassingClass     | Tipus de passades                                    |
+| chanceCreationCrossing         | Oportunitats creades amb centrades                   |
+| chanceCreationCrossingClass    | Tipus de centrades                                   |
+| chanceCreationShooting         | Quantitat de xuts                                    |
+| chanceCreationShootingClass    | Tipus de xuts                                        |
+| chanceCreationPositioningClass | Tipus d'organització                                 |
+| defencePressure                | Quantitat de pressió defensiva                       |
+| defencePressureClass           | Tipus de pressió defensiva                           |
+| defenceAggression              | Agressivitat defensiva                               |
+| defenceAggressionClass         | Tipus d'agressivitat defensiva                       |
+| defenceTeamWidth               | Amplada defensiva                                    |
+| defenceTeamWidthClass          | Tipus d'amplada defensiva                            |
+| defenceDefenderLineClass       | Tipus de defensa                                     |
+
+
+
+### Justificació de l'elecció
+
+S'ha escollit aquest joc de dades per què dels *datasets* disponibles sobre futbol, aquest és un dels més complets. Molts d'ells no contenen gaire informació dels equips, partits i jugadors, en canvi, aquest sí. És cert que no conté dades gaire actualitzades, però això no és rellevant.
+
+A més, se li poden aplicar tant algorismes supervisats com no supervisats, conté més de 500 observacions, més de 5 variables numèriques, més de 2 categòriques i més d'1 binària.
+
+Pel que fa a la seva complexitat es pot comentar que té múltiples taules i això farà que no sigui tan fàcil treballar amb ell. A més, les dades no estan gaire polides i hi ha poca documentació sobre el significat de les columnes, ha calgut fer recerca per esbrinar el significat d'algunes de les variables. I finalment, és un arxiu SQLite, i no estem massa acostumats a fer servir aquest tipus de base de dades.
+
+
+
+## EDA (*Exploratory Data Analysis*)
+
+En aquesta secció es fa una anàlisi de les dades per entendre-les. Cal fer una investigació dels registres i atributs per obtenir les seues principals característiques. Els objectius principals d'aquesta fase són extreure'n el coneixement suficient per a saber com manipular les fonts de dades en posteriors estudis.
+
+Abans de res cal aconseguir les dades. Les tenim en un arxiu `sqlite`, per tant, cal carregar-lo en una base de dades, obtenir les seves taules i guardar-les com a ***Data Frames*** per a poder-les fer servir en **R**.
+
+A continuació, es crida un *script* que s'encarrega de fer aquesta feina:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Load the RSQLite Library
+if (!require("RSQLite")) install.packages("RSQLite", repos = "http:/cran.us.r-project.org"); library("RSQLite")
+
+# Create connection to the SQLite DB file
+mydb <- dbConnect(RSQLite::SQLite(), "data/database.sqlite")
+
+# Retrieve dataframes
+df_country           <- dbGetQuery(mydb, "SELECT * FROM Country")
+df_league            <- dbGetQuery(mydb, "SELECT * FROM League")
+df_match             <- dbGetQuery(mydb, "SELECT * FROM Match")
+df_player            <- dbGetQuery(mydb, "SELECT * FROM Player")
+df_player_attributes <- dbGetQuery(mydb, "SELECT * FROM Player_Attributes")
+df_team              <- dbGetQuery(mydb, "SELECT * FROM Team")
+df_team_attributes   <- dbGetQuery(mydb, "SELECT * FROM Team_Attributes")
+
+# Close connection with DB
+dbDisconnect(mydb)
+```
+
+### Anàlisi preliminar
+
+En aquesta secció es dona una primera ullada a les taules que acabem de carregar i analitzem la seua estructura.
+
+#### **Country i League**: {-}
+Visualitzem les dades de les taules `country` i `league`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_country
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_league
+```
+
+Com que és una taula auxiliar no conté gaires registres. La seua única finalitat serà la de facilitar la visualització de la resta de taules.
+
+
+#### **Match**: {-}
+Aquesta taula és una de les més importants de tot el conjunt de dades. Ens servirà per conèixer els resultats dels partits i les seues principals característiques.
+
+Fem una visualització de la seva estructura:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+str(df_match)
+```
+
+Aquestes comandes ens serveixen per saber el tipus de cada variable i fer una primera inspecció al contingut de les variables. També es pot observar que hi ha variables amb valors buits.
+
+Els valors buits (`NA`) es tractaran més endavant en la secció de **Neteja i preparació**, però volem indagar una mica més per conèixer quines són les variables a les quals els manquen més valors:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+sort(colMeans(is.na(df_match) | df_match == ""), decreasing = TRUE)
+```
+
+Com podem veure les columnes amb més valors buits són les que tenen relació amb les quotes d'apostes. En principi, no ens preocupa perquè no tenim cap propòsit de predir o entendre les quotes d'apostes. Tot i això, si es canviés d'opinió, es podrien fer servir les columnes `B365+`, `BW+`, `WH+`, `VC+`, `LB+` i `IW+`.
+
+També es veu com les variables `goal`, `shoton`, `shotoff`, `foulcommit`, `card`, `cross`, `corner` i `possession` contenen molts registres buits. A més, aquestes hem vist que estan mal formatades. És una llàstima per què a partir d'aquestes estadístiques dels partits se'n podrien obtenir conclusions interessants. Malauradament, sembla que no les podrem fer servir.
+
+
+#### **Player i Team**: {-}
+Ara donem una primera ullada a les taules `player` i `team`.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+head(df_player)
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+str(df_player)
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+head(df_team)
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+str(df_team)
+```
+
+Com podem veure, aquestes taules tampoc conten gaire informació sobre els jugadors i els equips. Però es podran fer servir com a taules auxiliars.
+
+
+#### **Player Attributes**: {-}
+Aquesta taula també és important, ja que, ens indica els principals atributs dels jugadors de futbol.
+
+Fem una visualització de l'estructura de les dades:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+str(df_player_attributes)
+```
+
+Comprovem també la quantitat de valors buits:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+sort(colMeans(is.na(df_player_attributes) | df_player_attributes == ""), decreasing = TRUE)
+```
+
+Per sort, en aquest cas la gran majoria de registres tenen algun valor.
+
+
+#### **Team Attributes**: {-}
+Finalment, fem l'anàlisi preliminar de la taula `team_attributes`. També és rellevant per què ens indica les principals característiques dels clubs.
+
+Fem una visualització de l'estructura de les dades:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+str(df_team_attributes)
+```
+
+Veiem que conté molts atributs, però alguns estan duplicats. Algunes variables són valors numèrics i les altres variables categòriques. És molt probable que en la majoria de casos ja en tinguem prou fent servir una de les dos.
+
+Comprovem també la quantitat de valors buits:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+sort(colMeans(is.na(df_team_attributes) | df_team_attributes == ""), decreasing = TRUE)
+```
+
+Podem observar que en aquesta taula també tenim un percentatge molt petit de registres buits. Només la variable `buildUpPlayDribbling` conté valors `NA`, però la seva variable categòrica `buildUpPlayDribblingClass` és plena.
+
+
+
+### Anàlisi univariant
+
+En aquest apartat s'analitzen les variables de les taules una per una. Es vol obtenir estadístiques bàsiques sobre elles i visualitzar-les per a entendre-les més fàcilment.
+
+En aquest cas, només fem servir les taules `Match`, `Player`, `Player_Attributes` i `Team_Attributes`. Tenen atributs numèrics o categòrics que permeten analitzar-los en profunditat. En canvi, les taules `Country`, `League` i `Team` només contenen noms i identificadors, per la qual cosa no té sentit examinar-ne el contingut.
+
+Primer de tot, s'aconsegueixen unes estadístiques bàsiques de les variables de cada taula. S'utilitza la funció `summary(...)`, aquesta mostra un resum de cada variable de la taula que se li passa per paràmetre. Si la variable és numèrica mostra les següents característiques:
+
+- `Min.`: Valor mínim de la sèrie de dades.
+- `1st Qu.`: Valor del primer quartil de la sèrie de dades.
+- `Median`: Valor de la mediana de la sèrie de dades.
+- `Mean`: Valor de la mitja de la sèrie de dades.
+- `3rd Qu.`: Valor del tercer quartil de la sèrie de dades.
+- `Max.`: Valor màxim de la sèrie de dades.
+
+Cal tenir en compte que si un registre conté valors buits (`NA`) la funció no els té en compte per a fer els càlculs, però en mostra el nombre total.
+
+Després, es generen uns gràfics que faciliten la comprensió de les dades. Per a les variables numèriques es fa servir el gràfic *Box Plot* per a veure com les dades estan distribuïdes i si contenen valors extrems (*outliers*). Per a les variables categòriques es creen histogrames, que mostren el nombre de registres que hi ha per cada categoria de la variable. També es fa servir un *Pie Chart* per a la variable binària.
+
+
+#### **Match**: {-}
+
+##### Estadístiques: {-}
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+summary(df_match)
+```
+
+
+##### Visualitzacions: {-}
+- *Boxplot*
+
+Aquesta taula té múltiples variables numèriques, però moltes d'elles només contenen identificadors, per tant, no té sentit estudiar la seua distribució.
+
+També hi ha moltes variables relatives a les apostes. Com ja s'ha comentat anteriorment, no es pretén utilitzar-les en cap anàlisi i per això no se'n visualitza el seu *Box Plot*.
+
+Les variables que resten són `home_team_goal` i  `away_team_goal`. Obtenim el seu *Box Plot*, ja que, segurament seran molt importants de cara al nostre estudi.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("home_team_goal",
+                    "away_team_goal")
+df_match_aux <- df_match[, which(names(df_match) %in% box_plot_attr)]
+boxplot(df_match_aux)
+```
+
+Podem veure que la mediana de totes dos columnes és molt semblant i està pel voltant dels 1,5 gols. Malgrat ser semblants, els gols que marca l'equip visitant no estan tan concentrats i el seu primer quartil es troba a 0, mentre que els gols que marca l'equip local tenen el primer quartil a 1,5 gols i estan molt més concentrats. A causa d'això, també apareixen més valors atípics.
+
+
+- Histograma
+
+Ara ha arribat el moment de mostrar la distribució de les variables `season` i `stage` amb un histograma. És cert que la variable `stage` és numèrica i es podria mostrar amb una *Box Plot*. Però creiem més oportú visualitzar-ho així per què, en realitat, aquests números són els identificadors de cada jornada i les jornades d'una competició són variables categòriques.
+
+Carreguem les llibreries necessàries per a Generació del els gràfics:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+if (!require("ggplot2")) install.packages("ggplot2"); library("ggplot2")
+if (!require("Rmisc")) install.packages("Rmisc"); library("Rmisc")
+if (!require("dplyr")) install.packages("dplyr"); library("dplyr")
+if (!require("xfun")) install.packages("xfun"); library("xfun")
+```
+
+Generem l'histograma de la columna `season`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(df_match, aes_string(x = "season")) +
+  geom_histogram(stat = "count")
+```
+
+En el gràfic es veu que més o menys cada temporada conté el mateix nombre de registres, l'única que en té relativament pocs és la temporada **2013/2014**. En principi, va ser una temporada normal en què es van jugar els mateixos partits que en la resta, així que deduïm que es deu a un error a l'hora de recollir les dades. No hauria de suposar un problema de cara a fer les nostres anàlisis, però caldrà tenir-ho en compte.
+
+Generem l'histograma de la columna `stage`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(df_match, aes_string(x = "stage")) +
+  geom_histogram(stat = "count")
+```
+
+Veiem com el nombre de registres per jornada disminueix cap al final de la competició. En certs casos és normal que hi hagi menys partits en algunes jornades perquè en les diverses lligues que tenim, no totes tenen el mateix nombre de jornades.
+
+Hem fet una recerca per corroborar si la manca de registres es deu exclusivament a aquest factor:
+
+- **Belgium Jupiler League**: 34 jornades.
+- **England Premier League**: 38 jornades.
+- **France Ligue 1**: 38 jornades.
+- **Germany 1. Bundesliga**: 34 jornades.
+- **Italy Serie A**: 38 jornades.
+- **Netherlands Eredivisie**: 34 jornades.
+- **Poland Ekstraklasa**: 34 jornades.
+- **Portugal Liga ZON Sagres**: 34 jornades.
+- **Scotland Premier League**: 38 jornades.
+- **Spain LIGA BBVA**: 38 jornades.
+- **Switzerland Super League**: 36 jornades.
+
+Totes les lligues tenen almenys 34 jornades, per tant, és estrany que hi hagi menys partits entre les jornades 31 i 34. Suposem que és un error en recollir les dades.
+
+
+#### **Player**: {-}
+
+##### Estadístiques: {-}
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+summary(df_player)
+```
+
+
+##### Visualitzacions: {-}
+- *Boxplot*
+Igual que amb la taula `Match`, la taula `Player` té poques variables numèriques per a visualitzar.
+
+Tot i això, podem fer les gràfiques *Box Plot* de les variables `height` i `weigth`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("height",
+                    "weight")
+df_player_aux <- df_player[, which(names(df_player) %in% box_plot_attr)]
+boxplot(df_player_aux)
+```
+
+El primer que podem veure és que la variable `height` està expressada en centímetres i la variable `weight` està expressada en *pounds*. Ens podem plantejar convertir el pes a quilograms per entendre-ho millor.
+
+Això vol dir que l'alçada mitjana els jugadors és de 181 cm i que  la mitjana de pes és de 168 *pounds*, que equival a 76 kg. Veiem que l'alçada està molt concentrada i, en canvi, el pes presenta molta variància.
+
+- Histograma
+
+Aquesta taula també ens dona informació sobre la data de naixement dels jugadors. En principi, no és gaire interessant conèixer la distribució dels dies en què han nascut els jugadors. Però podem veure en quins anys o mesos han nascut més jugadors.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player$birth_year <- format(as.Date(df_player$birthday, format = "%Y-%m-%d"), "%Y")
+
+ggplot(df_player, aes_string(x = "birth_year")) +
+  geom_histogram(stat = "count")
+```
+
+Podem veure que segueix una distribució normal lleugerament desplaçada cap a la dreta. L'any en què han nascut més jugadors és el 1988. Aquest joc de dades es va fer l'any 2016, això vol dir que l'edat més repetida era 28 anys. També veiem que els jugadors més joves tenen 17 anys i els més vells en tenen 49. Aquesta diferència d'edat és molt alta, però totalment normal.
+
+Ara creem una nova variable `birth_month` amb el mes de naixement de cada jugador, i en mostrem el seu histograma:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player$birth_month <- format(as.Date(df_player$birthday, format = "%Y-%m-%d"), "%m")
+
+ggplot(df_player, aes_string(x = "birth_month")) +
+  geom_histogram(stat = "count")
+```
+
+Es pot veure com clarament hi ha menys jugadors a mesura que més tard neixen. Això sembla lògic, per què els que han nascut a principis d'any tenen més oportunitats de seguir progressant, ja que, s'enfronten a nens més joves. 
+
+Fem el mateix amb una nova variable `birth_day` que conté el dia en què han nascut:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player$birth_day <- format(as.Date(df_player$birthday, format = "%Y-%m-%d"), "%d")
+
+ggplot(df_player, aes_string(x = "birth_day")) +
+  geom_histogram(stat = "count")
+```
+
+Podem veure com el dia 1 és quan neixen més futbolistes i com el 31 és el dia que en neixen menys. Pel que fa a la resta de dies hi ha alguna diferència, però no és remarcable. Ens podem imaginar que el dia 31 és el que menys dies neixen per què n'hi ha menys durant l'any. Però no sabem per què el dia 1 és el més repetit.
+
+
+
+#### **Player Attributes**: {-}
+Aquesta taula té moltes variables interessants per estudiar. La majoria d'elles són numèriques, i les visualitzem amb gràfiques *Box Plot*. Com que n'hi ha moltes, les agrupem per similitud. Les variables categòriques les mostrem amb un histograma i la variable binària s'estudia amb una *Pie Chart*.
+
+##### Estadístiques: {-}
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+summary(df_player_attributes)
+```
+
+
+##### Visualitzacions: {-}
+- Qualificació del jugador *Boxplot*
+
+Primer de tot, volem analitzar les variables relacionades amb la qualitat general d'un jugador. Aquestes són `overall_rating` i `potential`. 
+
+Mostrem la seua gràfica *Box Plot*:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("overall_rating", "potential")
+df_player_attributes_aux <- df_player_attributes[, which(names(df_player_attributes) %in% box_plot_attr)]
+boxplot(df_player_attributes_aux)
+```
+
+Veiem que són molt similars, però en general el valor del potencial dels jugadors és més alt que la seua valoració actual.
+
+
+- Xutar *Boxplot*
+
+Ara estudiem les variables que tenen a veure amb la capacitat de xutar la pilota.
+
+A continuació, es mostren les variables `finishing`, `heading_accuracy`, `volleys`, `shot_power` i `long_shots`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("finishing",
+                    "heading_accuracy",
+                    "volleys",
+                    "shot_power",
+                    "long_shots")
+df_player_attributes_aux <- df_player_attributes[, which(names(df_player_attributes) %in% box_plot_attr)]
+boxplot(df_player_attributes_aux)
+```
+
+Es pot veure que `finishing`, `volleys` i `long_shots` tenen una variabilitat molt elevada. En canvi, `heading_accuracy` i `shot_power` mostren uns valors molt més concentrats. A més, aquestes tenen un conjunt de mostres que es poden considerar *outliers*, però les altres no.
+
+
+- Pilota aturada *Boxplot*
+
+També volem analitzar els atributs que tenen a veure amb la pilota aturada. Aquests són `curve`, `free_kick_accuracy` i `penalties`.
+
+A continuació mostrem el seu *Box Plot*:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("curve",
+                    "penalties",
+                    "free_kick_accuracy")
+df_player_attributes_aux <- df_player_attributes[, which(names(df_player_attributes) %in% box_plot_attr)]
+boxplot(df_player_attributes_aux)
+```
+
+Podem veure que es generen uns gràfics molt similars. La principal diferència és que en general els jugadors tenen menys precisió llençant faltes que penals. També es veu com l'atribut `penalties` té valors extrems per sota, per la qual cosa podem deduir que és més complicat no saber llençar un penal que un tir lliure.
+
+
+- Passada *Boxplot*
+
+Ara visualitzem les variables que tenen a veure amb saber realitzar una passada. Aquestes són `crossing`, `short_passing`, `long_passing` i `vision`.
+
+Aquest és el seu *Box Plot*:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("crossing",
+                    "short_passing",
+                    "long_passing",
+                    "vision")
+df_player_attributes_aux <- df_player_attributes[, which(names(df_player_attributes) %in% box_plot_attr)]
+boxplot(df_player_attributes_aux)
+```
+
+Veiem que la que té més variabilitat és la capacitat de fer una centrada, això ens indica que no és una habilitat que dominin tots els jugadors, segurament canvia molt segons la posició on juguin. La passada en curt sembla que és una qualitat que més jugadors dominen, ja que té un valor mitjà més elevat que les altres, els valors estan més concentrats i té molts *outliers* per sota.
+
+
+- Habilitats diverses *Boxplot*
+
+En aquest apartat s'hi agrupen certs atributs dels jugadors que no encaixen en un grup concret. Malgrat això, encara guarden alguna relació entre ells.
+
+Aquí es mostra la gràfica de `dribbling`, `ball_control`, `agility`, `reactions`, `balance` i `jumping`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("dribbling",
+                    "reactions",
+                    "ball_control",
+                    "agility",
+                    "balance",
+                    "jumping")
+df_player_attributes_aux <- df_player_attributes[, which(names(df_player_attributes) %in% box_plot_attr)]
+boxplot(df_player_attributes_aux)
+```
+
+Veiem que en general aquestes tenen uns valors més agrupats que la resta de variables de la taula. També tenen uns valors mitjans lleugerament superiors a les que hem analitzat fins ara. També es veu com, a part de `dribbling` i `ball control` la resta tenen uns valors mínims elevats. Llavors, podem deduir que és bastant complicat que els jugadors no siguin àgils, no reaccionin bé, no tinguin un bon equilibri o que no saltin gaire.
+
+
+- Velocitat i força *Boxplot*
+
+Aquí estudiem les variables que tenen a veure amb la força, la velocitat i la resistència. Aquestes són `acceleration`, `sprint_speed`, `stamina` i `strength`.
+
+A continuació es mostra la gràfica *Box Plot*:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("acceleration",
+                    "sprint_speed",
+                    "stamina",
+                    "strength")
+df_player_attributes_aux <- df_player_attributes[, which(names(df_player_attributes) %in% box_plot_attr)]
+boxplot(df_player_attributes_aux)
+```
+
+Igual que en el cas anterior, també tenen una variabilitat més baixa i uns valors mitjans més alts. Però els seus mínims són més baixos.
+
+
+- Defensa *Boxplot*
+
+Ara analitzem les qualitats que tenen relació amb defensar. Aquestes són `aggression`, `interceptions`, `positioning`, `marking`, `standing_tacke` i `sliding_tacke`.
+
+Aquestes són les seues gràfiques *Box Plot*:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("aggression",
+                    "positioning",
+                    "interceptions",
+                    "marking",
+                    "standing_tackle",
+                    "sliding_tackle")
+df_player_attributes_aux <- df_player_attributes[, which(names(df_player_attributes) %in% box_plot_attr)]
+boxplot(df_player_attributes_aux)
+```
+
+Podem observar una variabilitat molt més alta, sobretot amb la capacitat d'interceptar una pilota, la capacitat de marcar a un oponent, la de robar una pilota i la de realitzar una segada. Això segurament es deu fet que són característiques purament defensives, i per tant, els davanters i alguns migcampistes no tindran aquestes habilitats. 
+
+En canvi, l'agressivitat i el posicionament no són purament defensives perquè un davanter pot necessitar ser agressiu a l'hora de lluitar una pilota i també li cal posicionar-se correctament al camp. Segurament, per això, veiem menys variabilitat.
+
+
+- Porter *Boxplot*
+
+Per acabar l'anàlisi de les variables numèriques ho fem amb les que tenen a veure amb els porters. Aquestes variables són `gk_diving`, `gk_handling`, `gk_kicking`, `gk_positioning` i `gk_reflexes`.
+
+Mostrem la gràfica *Box Plot*:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("gk_diving",
+                    "gk_handling",
+                    "gk_kicking",
+                    "gk_positioning",
+                    "gk_reflexes")
+df_player_attributes_aux <- df_player_attributes[, which(names(df_player_attributes) %in% box_plot_attr)]
+boxplot(df_player_attributes_aux)
+```
+
+Podem veure uns valors mitjans molt baixos, una variabilitat molt baixa i molts valors extrems per dalt. Això, el que ens diu és que tots els jugadors (porters i jugadors de camp) tenen aquests atributs assignats, per tant, els jugadors de camp tenen una molt mala puntuació en aquests atributs. Això fa que es distorsioni la gràfica. 
+
+Estaria bé poder filtrar per tipus de jugador, però no tenim aquesta variable. El que es pot fer és deduir que els jugadors amb valors elevats en aquestes variables són porters i la resta no. És possible que es pugui cometre algun error, però no hauria de ser rellevant.
+
+
+- Preferred Foot *Pie Chart*
+
+La variable `preferred foot` és una variable binària que ens indica la preferència de cada jugador en utilitzar la cama esquerra o la dreta. 
+
+Fem servir una gràfica circular per a veure quina és la preferida dels jugadors:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+if (!require("dplyr")) install.packages("dplyr", repos = "http:/cran.us.r-project.org"); library("dplyr")
+
+labels <- c("Esquerra", "Dreta")
+df_preferred_foot <- df_player_attributes %>%
+                      group_by(preferred_foot) %>%
+                      count()
+pie(df_preferred_foot$n, labels = labels)
+```
+
+Podem veure que tres quarts dels jugadors són dretans. Segons la pàgina web [LEFTYFRETZ](https://leftyfretz.com/how-many-people-are-left-handed/#anchor-1) al món només el **12%** de les persones és esquerrana, això voldria dir que en els futbolistes hi ha una proporció més alta d'esquerrans que en general. Un dels motius podria ser que a Europa la taxa d'esquerrans és més alta que en la resta del món i un altre que és més fàcil que algú sigui esquerrà si és un home. Malgrat tot, aquesta xifra sorprèn per què els motius citats no acaben d'explicar que n'hi hagi tants.
+
+
+
+- Histograma
+
+Per acabar l'anàlisi de la taula `Player_Attributes` estudiem la distribució dels seus atributs categòrics amb un histograma.
+
+A continuació, es mostren els histogrames de les variables `attacking_work_rate` i `defensive_work_rate`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+hist_list <- list()
+
+dist_attr <- c("attacking_work_rate", "defensive_work_rate")
+df_player_attributes_aux <- df_player_attributes[, which(names(df_player_attributes) %in% dist_attr)]
+
+for(i in seq_len(ncol(df_player_attributes_aux))) {
+  col <- names(df_player_attributes_aux)[i]
+  ggp <- ggplot(df_player_attributes_aux, aes_string(x = col)) +
+    geom_histogram(stat = "count") 
+      hist_list[[i]] <- ggp  # afegim cada plot a la llista buida
+}
+multiplot(plotlist = hist_list, cols = 1)
+```
+
+Podem veure que en tots dos casos hi ha categories estranyes. Les  que tenen més valors són `high`, `low` i `medium`. La resta semblen errors, ja que no corresponen amb aquesta lògica ni tenen gaires valors. Per tant, caldrà tenir-ho en compte a l'hora de netejar les dades.
+
+
+
+#### **Team Attributes**: {-}
+
+##### Estadístiques: {-}
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+summary(df_team_attributes)
+```
+
+
+##### Visualitzacions: {-}
+Aquesta taula també té diverses variables numèriques i categòriques. Per això, farem com hem fet anteriorment i les agruparem per similitud.
+
+
+- BuildUpPlay *Boxplot*
+
+Les primeres variables que analitzem són les que tenen a veure amb com un equip construeix el seu joc.
+
+Aquí podem veure les gràfiques *Box Plot* de les variables `buildUpPlaySpeed`, `buildUpPlayDribbling` i `buildUpPlayPassing`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("buildUpPlaySpeed",
+                    "buildUpPlayDribbling",
+                    "buildUpPlayPassing")
+df_team_attributes_aux <- df_team_attributes[, which(names(df_team_attributes) %in% box_plot_attr)]
+boxplot(df_team_attributes_aux)
+```
+
+Es pot observar com tenen una variabilitat molt gran i que tenen pocs o cap valor extrems.
+
+
+- ChanceCreation *Boxplot*
+
+Els segons atributs que analitzem són els que tenen a veure amb la creació d'oportunitats. Aquests són `chanceCreationPassing`, `chanceCreationCrossing` i `chanceCreationShooting.
+
+Seguidament, podem veure les seues gràfiques *Box Plot*:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("chanceCreationPassing",
+                    "chanceCreationCrossing",
+                    "chanceCreationShooting")
+df_team_attributes_aux <- df_team_attributes[, which(names(df_team_attributes) %in% box_plot_attr)]
+boxplot(df_team_attributes_aux)
+```
+
+Són uns resultats bastant similars als anteriors, una gran variabilitat i amb pocs valors extrems.
+
+
+- DefenceAggression *Boxplot*
+
+Ara estudiem les variables que fan referència a l'agressivitat en defensa. Aquestes són `chanceCreationPassing`, `chanceCreationCrossing` i `chanceCreationShooting`.
+
+A continuació, es mostren els seus gràfics:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+box_plot_attr <- c("defencePressure",
+                    "defenceAggression",
+                    "defenceTeamWidth")
+df_team_attributes_aux <- df_team_attributes[, which(names(df_team_attributes) %in% box_plot_attr)]
+boxplot(df_team_attributes_aux)
+```
+
+Tornem a tenir gràfics similars als anteriors. En tots aquests casos costa molt extreure'n conclusions per què són variables abstractes i amb resultats molt similars. L'únic que podem deduir és que els equips juguen de formes molt diferents i per això obtenim aquesta variabilitat tan elevada.
+
+
+- BuildUpPlay Histograma
+
+Mostrem l'histograma de les variables relacionades amb la forma de construir el joc:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+hist_list <- list()
+
+dist_attr <- c("buildUpPlaySpeedClass",
+                "buildUpPlayDribblingClass",
+                "buildUpPlayPassingClass",
+                "buildUpPlayPositioningClass")
+df_team_attributes_aux <- df_team_attributes[, which(names(df_team_attributes) %in% dist_attr)]
+
+for(i in seq_len(ncol(df_team_attributes_aux))) {
+  col <- names(df_team_attributes_aux)[i]
+  ggp <- ggplot(df_team_attributes_aux, aes_string(x = col)) +
+    geom_histogram(stat = "count") 
+      hist_list[[i]] <- ggp  # afegim cada plot a la llista buida
+}
+multiplot(plotlist = hist_list, cols = 1)
+```
+
+Podem veure que les distribucions són molt desiguals en totes les variables, excepte en la `buildUpPlayDribblingClass` que hi ha dos categories amb una quantitat similar. Això implica que els equips construeixen el joc de forma semblant.
+
+- ChanceCreation Histograma
+
+A continuació, es mostra l'histograma de les variables que tenen a veure amb la creació d'oportunitats:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+hist_list <- list()
+
+dist_attr <- c("chanceCreationPassingClass",
+                "chanceCreationCrossingClass",
+                "chanceCreationShootingClass",
+                "chanceCreationPositioningClass")
+df_team_attributes_aux <- df_team_attributes[, which(names(df_team_attributes) %in% dist_attr)]
+
+for(i in seq_len(ncol(df_team_attributes_aux))) {
+  col <- names(df_team_attributes_aux)[i]
+  ggp <- ggplot(df_team_attributes_aux, aes_string(x = col)) +
+    geom_histogram(stat = "count") 
+      hist_list[[i]] <- ggp  # afegim cada plot a la llista buida
+}
+multiplot(plotlist = hist_list, cols = 1)
+```
+
+Un altre cop, veiem com en totes les variables hi ha una categoria que destaca clarament, que acostuma a ser la `Normal`.
+
+- Defence Histograma
+
+Finalment, es genera l'histograma pels atributs defensius:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+hist_list <- list()
+
+dist_attr <- c("defencePressureClass",
+                "defenceAggressionClass",
+                "defenceTeamWidthClass",
+                "defenceDefenderLineClass")
+df_team_attributes_aux <- df_team_attributes[, which(names(df_team_attributes) %in% dist_attr)]
+
+for(i in seq_len(ncol(df_team_attributes_aux))) {
+  col <- names(df_team_attributes_aux)[i]
+  ggp <- ggplot(df_team_attributes_aux, aes_string(x = col)) +
+    geom_histogram(stat = "count") 
+      hist_list[[i]] <- ggp  # afegim cada plot a la llista buida
+}
+multiplot(plotlist = hist_list, cols = 1)
+```
+
+Tampoc hi ha sorpreses, la majoria dels equips comparteixen les mateixes categories. Això sorprèn per què en l'anàlisi de les variables numèriques ens ha costat veure que tinguessin valors similars, però quan s'agrupen en ca veiem que són pocs els equips que es mouen de la *normalitat*.
+
+
+
+
+### Anàlisi multivariant
+
+L'anàlisi multivariant és una branca de l'estadística que consisteix a examinar diverses variables alhora.
+
+Com hem vist en l'anàlisi preliminar, no totes les taules tenen atributs que es puguin analitzar. Algunes només són taules auxiliars que ens serveixen per a entendre millor les dades. Per tant, només es faran servir aquelles taules que tinguin atributs rellevants. Aquestes són `Match`, `Player`, `Player_Attributes` i `Team_Attributes`.
+
+En aquesta secció s'analitza la matriu de correlacions per a cada una de les taules. Aquesta matriu ens indica la correlació que hi ha entre les diverses variables.
+
+Fem servir les següents funcions que mostren a la part baixa de la matriu l'*scatter plot* de dos variables, a la diagonal mostren la distribució de la variable i a la part alta de la matriu mostren la correlació entre dos variables:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# https://r-coder.com/correlation-plot-r/
+panel_hist <- function(x, ...) {
+    usr <- par("usr")
+    on.exit(par(usr))
+    par(usr = c(usr[1:2], 0, 1.5))
+    his <- hist(x, plot = FALSE)
+    breaks <- his$breaks
+    nB <- length(breaks)
+    y <- his$counts
+    y <- y / max(y)
+    rect(breaks[-nB], 0, breaks[-1], y, col = rgb(0.8, 0.5, 0.5, alpha = 1.0), ...)
+}
+
+panel_corr <- function(x, y, digits = 2, prefix = "", cex_cor, ...) {
+    usr <- par("usr")
+    on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    corr <- abs(cor(x, y)) # Remove abs function if desired
+    txt <- paste0(prefix, format(c(corr, 0.123456789), digits = digits)[1])
+    if (missing(cex_cor)) {
+      cex_cor <- 0.4 / strwidth(txt)
+    }
+    text(0.5, 0.5, txt,
+         cex = 1 + cex_cor * corr) # Resize the text by level of correlation
+}
+```
+
+#### **Match**: {-}
+
+- Matriu de correlacions
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+corr_attr <- c("home_team_goal",
+                "away_team_goal")
+df_match_corr <- df_match[, which(names(df_match) %in% corr_attr)]
+
+# Plot correlation matrix
+pairs(df_match_corr,
+      upper.panel = panel_corr,
+      diag.panel = panel_hist)
+```
+
+En aquesta taula només tenim dos variables numèriques i veiem que aquestes no estan correlacionades.
+
+
+#### **Player**: {-}
+
+- Matriu de correlacions
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+corr_attr <- c("height", "weight")
+df_player_corr <- df_player[, which(names(df_player) %in% corr_attr)]
+
+# Plot correlation matrix
+pairs(df_player_corr,
+      upper.panel = panel_corr,
+      diag.panel = panel_hist)
+```
+
+Aquesta taula també té només dos atributs numèrics. Veiem que estan força correlacionats. És lògic, ja que, com més alçada més pesa una persona.
+
+#### **Player Attributes**: {-}
+
+- Matriu de correlacions
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+corr_attr <- c("overall_rating", "potential")
+df_player_attributes_corr <- df_player_attributes[, which(names(df_player_attributes) %in% corr_attr)]
+
+df_player_attributes_corr <- na.omit(df_player_attributes_corr)
+
+# Plot correlation matrix
+pairs(df_player_attributes_corr,
+      upper.panel = panel_corr,
+      diag.panel = panel_hist)
+```
+
+En aquest cas, tenim només les variables `overall_rating` i `potential`. I veiem que també estan bastant correlacionades. És lògic perquè com més valoració global té un jugador, més pot arribar a millorar.
+
+#### **Team Attributes**: {-}
+
+- Matriu de correlacions
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+corr_attr <- c("buildUpPlaySpeed",
+                "buildUpPlayDribbling",
+                "buildUpPlayPassing",
+                "chanceCreationPassing",
+                "chanceCreationCrossing",
+                "chanceCreationShooting",
+                "defencePressure",
+                "defenceAggression",
+                "defenceTeamWidth")
+df_team_attributes_corr <- df_team_attributes[, which(names(df_team_attributes) %in% corr_attr)]
+df_team_attributes_corr <- na.omit(df_team_attributes_corr)
+
+# Plot correlation matrix
+pairs(df_team_attributes_corr,
+      upper.panel = panel_corr,
+      diag.panel = panel_hist)
+```
+
+En aquesta taula ja tenim moltes més variables. En general hi ha cap parell de variables amb una forta correlació. És estrany perquè hi ha variables amb una temàtica semblant. Els parells amb més correlació són `defencePressure` i `defenceAggression`, `defencePressure` i `defenceTeamWidth`, i `buildUpPlaySpeed` i `buildUpPlayPassing`.
+
+
+## Neteja i preparació
+L'objectiu d'aquesta secció és deixar les dades polides i ben netes per poder aplicar els algorismes de mineria de dades desitjats.
+
+### Esborrar variables buides
+El primer pas que duem a terme és el d'esborrar variables buides o innecessàries. 
+
+Gràcies a l'anterior anàlisi ja coneixem quines variables contenen massa registres buits per a fer-les servir. També hem observat que algunes estan mal formatades, o bé contenen paràmetres incorrectes o bé hi ha categories de més. S'aplicarà la millor estratègia en cada cas.
+
+
+#### **Match**: {-}
+
+Com s'ha explicat anteriorment, les quotes d'apostes no ens interessen, per això les podem suprimir del nostre *dataset*.
+
+Abans de res, ens guardem *dataframe* original per si el volem recuperar més endavant:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_match_org <- df_match
+```
+
+Ara procedim a suprimir les variables d'apostes:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+odds_attr <- c("B365H", "B365D", "B365A",
+                "BWH", "BWD", "BWA",
+                "IWH", "IWD", "IWA",
+                "LBH", "LBD", "LBA",
+                "PSH", "PSD", "PSA",
+                "WHH", "WHD", "WHA",
+                "SJH", "SJD", "SJA",
+                "VCH", "VCD", "VCA",
+                "GBH", "GBD", "GBA",
+                "BSH", "BSD", "BSA")
+
+df_match <- df_match[, -which(names(df_match) %in% odds_attr)]
+```
+
+
+I a continuació, suprimim les variables `goal`, `shoton`, `shotoff`, `foulcommit`, `card`, `cross`, `corner` i `possession` que tenen massa valors `NA` i impedeixen poder fer cap anàlisi:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+empty_attr <- c("goal",
+                "shoton",
+                "shotoff",
+                "foulcommit",
+                "card",
+                "cross",
+                "corner",
+                "possession")
+
+df_match <- df_match[, -which(names(df_match) %in% empty_attr)]
+```
+
+
+#### **Player Attributes**: {-}
+
+Com hem vist en l'anàlisi univariant, aquesta taula té dos atributs amb categories equivocades. Aquests són `defensive_work_rate` i `attacking_work_rate`. 
+
+Ens guardem el *dataframe* original:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player_attributes_org <- df_player_attributes
+```
+
+Convertim en `NA` les categories que no són `high`, `low` i `medium`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+keep_values <- c("high", "medium", "low")
+
+df_player_attributes$defensive_work_rate[!(df_player_attributes$defensive_work_rate %in% keep_values)] <- NA
+df_player_attributes$attacking_work_rate[!(df_player_attributes$attacking_work_rate %in% keep_values)] <- NA
+```
+
+És possible que després de la conversió hi hagi massa valors `NA` en aquestes variables. Tornem a comprovar la quantitat de valors buits que hi ha en la taula:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+sort(colMeans(is.na(df_player_attributes) | df_player_attributes == ""), decreasing = TRUE)
+```
+
+Veiem que el percentatge de valors buits segueix sent molt baix, per tant, no ens preocupem.
+
+
+
+### Unir taules
+En aquest pas la intenció és reduir el nombre total de taules. Hem pogut veure que hi ha moltes taules redundants. Per això, sempre que es pugui, unirem aquestes taules.
+
+
+#### Country i League
+
+Com que les taules `Country` i `League` són molt similars i fan referència als mateixos registres té molt sentit unir-les.
+
+Ens guardem el *dataframe* original:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_league_org <- df_league
+```
+
+Realitzem un *outer-join* amb totes dos taules i la guardem a la taula `League`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_league <- merge(x = df_league, y = df_country, by = "id", all = TRUE)
+```
+
+Esborrem la columna `country_id`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_league <- df_league[, -which(names(df_league) == "country_id")]
+```
+
+I finalment, canviem els noms a les columnes `name.x` i `name.y`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+colnames(df_league) <- c("id", "league_name", "country_name")
+df_league
+```
+
+
+#### Player i Player Attributes
+
+Basant-nos en el contingut d'aquestes dos taules, semblaria lògic pensar que haurien d'estar unides en una de sola.
+
+Però, una cosa que ens sorprèn és que la taula `Player` té 11.060 registres i la taula `Player_Attributes` en té 183.978. És una diferència molt gran.
+
+Estudiem si la taula `Player_Attributes` conté registres duplicats. Ho fem amb la comanda d'R `duplicated` que indica si un registre està duplicat o no:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+any(duplicated(df_player_attributes$id))
+any(duplicated(df_player_attributes$player_api_id))
+any(duplicated(df_player_attributes$player_fifa_api_id))
+```
+
+Veiem que la variable `id` no conté cap valor repetit, com és lògic. Però, en canvi, la variable `player_api_id` sí que conté duplicats, però en tractar-se d'un identificador haurien de ser valors únics.
+
+Hem de tenir en compte que hi ha una variable `date`, fins ara no sabíem ben bé què indicava, però ara podem deduir que ens mostra els atributs d'un jugador en una data determinada. 
+
+Per tant, si volguéssim podríem estudiar l'evolució dels jugadors en el temps, encara que les dates no són gaire consistents entre jugadors. També caldrà tenir-ho en compte a l'hora de calcular nous atributs.
+
+Pel que fa a unir les dos taules no hi ha problema, és cert que no sabem en quina data es van mesurar el pes i l'alçada dels jugadors però no creiem que hi hagi gaire diferència.
+
+Procedim a fer un *outer join* de les taules `Player` i `Player_Attributes` que emmagatzemem en la taula `Player_Attributes`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player_attributes_org <- df_player_attributes
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player_attributes <- merge(x = df_player_attributes, y = df_player, by = c("player_api_id", "player_fifa_api_id"), all = TRUE)
+```
+
+
+#### Team i Team Attributes
+
+Aquestes dos taules són molt similars a les anteriors, ja que, la taula `Team_Attributes` conté moltes més observacions que la taula `Team`, però, és perquè cada equip té múltiples registres segons la data.
+
+Unim totes dos taules fent servir el mètode anterior:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_team_attributes_org <- df_team_attributes
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_team_attributes <- merge(x = df_team_attributes, y = df_team, by = c("team_api_id", "team_fifa_api_id"), all = TRUE)
+```
+
+
+
+### Afegir noves variables
+L'últim pas consisteix a crear nous atributs que serveixin per a facilitat l'anàlisi.
+
+#### **Match**: {-}
+
+En aquesta taula ens interessa crear una variable que indiqui els gols totals que s'han marcat al partit. Es calcularà sumant els gols de l'equip local i els gols de l'equip visitant.
+
+Creem la nova variable `total_goals` sumant `home_team_goal` i `away_team_goal`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_match$total_goals <- (df_match$home_team_goal + df_match$away_team_goal)
+summary(df_match$total_goals)
+```
+
+I comprovem que el càlcul és correcte:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+head(df_match[c("home_team_goal", "away_team_goal", "total_goals")])
+```
+
+#### **Player Attributes**: {-}
+En aquesta taula podem calcular múltiples atributs nous relacionats amb els jugadors.
+
+El primer que podem fer és crear una variable que combini l'alçada i el pes. Podem fer servir el càlcul de l'índex de massa corporal (IMC) o *body mass index (BMI)*, en anglès. 
+
+La fórmula és la següent:
+$$
+{massa (lb)} \over {(alçada/100)^2 (cm) · 2.2046}
+$$
+
+Afegim la variable `bmi`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player_attributes$bmi <- ((df_player_attributes$weight) / (((df_player_attributes$height/100)**2)*2.2046))
+summary(df_player_attributes$bmi)
+```
+
+Convertim a `int` les variables `birth_day`, `birth_month` i `birth_year`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player_attributes$birth_day <- as.integer(df_player_attributes$birth_day)
+df_player_attributes$birth_month <- as.integer(df_player_attributes$birth_month)
+df_player_attributes$birth_year <- as.integer(df_player_attributes$birth_year)
+str(df_player_attributes)
+```
+
+També podem afegir el càlcul de l'edat dels jugadors l'any 2016:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player_attributes$age <- (2016 - df_player_attributes$birth_year)
+summary(df_player_attributes$age)
+```
+
+
+### Normalització
+La finalitat de normalitzar els valors és situar les dades sobre una escala de valors equivalents. D'aquesta forma es poden comparar tots els atributs, encara que originalment tinguessin rangs diferents.
+
+En aquest cas, normalitzem els valors numèrics de les taules utilitzant la normalització basada en la desviació estandard. A més, també suprimim els registres que contenen `NA`.
+
+#### **Match**: {-}
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+num_attr <- c("home_team_goal",
+              "away_team_goal",
+              "total_goals")
+
+df_match_aux <- df_match[, num_attr]
+df_match_nor <- as.data.frame(scale(df_match_aux))
+df_match_nor <- na.omit(df_match_nor)
+
+summary(df_match_nor)
+```
+
+#### **Player Attributes**: {-}
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+num_attr <- c("overall_rating", "potential",
+              "crossing", "finishing",
+              "heading_accuracy", "short_passing",
+              "volleys", "dribbling",
+              "curve", "free_kick_accuracy",
+              "long_passing", "ball_control",
+              "acceleration", "sprint_speed",
+              "agility", "reactions",
+              "balance", "shot_power",
+              "jumping", "stamina",
+              "strength", "long_shots",
+              "aggression", "interceptions",
+              "positioning", "vision",
+              "penalties", "marking",
+              "standing_tackle", "sliding_tackle",
+              "gk_diving", "gk_handling",
+              "gk_kicking", "gk_positioning",
+              "gk_reflexes", "height",
+              "weight", "birth_year",
+              "birth_month", "birth_day",
+              "bmi", "age")
+df_player_attributes_aux <- df_player_attributes[, num_attr]
+df_player_attributes_nor <- as.data.frame(scale(df_player_attributes_aux))
+df_player_attributes_nor <- na.omit(df_player_attributes_nor)
+
+summary(df_player_attributes_nor)
+```
+
+#### **Team Attributes**: {-}
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+num_attr <- c("buildUpPlaySpeed",
+              "buildUpPlayDribbling",
+              "buildUpPlayPassing",
+              "chanceCreationPassing",
+              "chanceCreationCrossing",
+              "chanceCreationShooting",
+              "defencePressure",
+              "defenceAggression",
+              "defenceTeamWidth")
+
+df_team_attributes_aux <- df_team_attributes[, num_attr]
+df_team_attributes_nor <- as.data.frame(scale(df_team_attributes_aux))
+df_team_attributes_nor <- na.omit(df_team_attributes_nor)
+
+summary(df_team_attributes_nor)
+```
+
+
+
+
+## Reducció de la dimensionalitat
+Un cop hem dut a terme les anteriors anàlisis i transformacions del nostre joc de dades, encara podem aplicar-li mètodes de reducció de la dimensionalitat. La finalitat és reduir el nombre d'atributs que tenim actualment, sense que el model perdi qualitat.
+
+
+### PCA (*Principal component analysis*)
+La tècnica que fem servir per a reduir el nombre de variables és el *Principal Component Analysis* (PCA). Fent servir aquesta tècnica es pretén crear combinacions lineals de les característiques del *dataset* original. Aquestes noves combinacions són anomenades **components**. El que es fa és incorporar els **components principals**, que són aquells que acumulen una variabilitat superior al 90%. 
+
+En aquesta secció calculem els components principals per a cadascuna de les taules que han sigut normalitzades anteriorment, fem una visualització dels resultats i els interpretem.
+
+En aquest exercici fem servir el mètode de **Kàiser** per decidir quines variables hem d'escollir. Ens quedem amb totes les variables que tinguin una variància superior a **1**. Fent ús d'aquest mètode és fàcil que sobreestimem el nombre de components, per tant, caldrà tenir-ho en compte quan analitzem els resultats.
+
+#### **Match**: {-}
+##### Calcular els components principals {-}
+
+Utilitzem la funció `prcomp` per fer una anàlisi de les components principals de la taula:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+match_pca <- prcomp(df_match_nor, center = TRUE, scale. = TRUE)
+
+summary(match_pca)
+```
+
+Podem veure que tenim 4 components principals, i el primer de tots explica el **0,4843** de variabilitat del total de dades, en canvi, el quart no n'explica res.
+
+Per poder fer servir el mètode de **Kàiser** hem de calcular la variància dels components principals a partir de la desviació estàndard:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+var_acc <- match_pca$sdev^2
+
+var_acc
+var_acc > 1
+```
+
+Seguint aquest mètode, escollim els components **PCA1** i **PCA2**.
+
+La funció `get_pca_var(...)` ens retorna un objecte que es pot fer servir per seleccionar els elements principals que hem triat. En aquest cas mostrem les coordenades que ens serveixen per Generació del un diagrama de dispersió:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+if (!require("factoextra")) install.packages("factoextra"); library("factoextra")
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+match_var <- get_pca_var(match_pca)
+head(match_var$coord[, 1:2])
+```
+
+##### Mostrar el PCA {-}
+
+A continuació, mostrem un histograma per veure el pes total dels components sobre el conjunt de dades:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+if (!require("corrplot")) install.packages("corrplot"); library("corrplot")
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ev <- get_eig(match_pca)
+ev
+fviz_eig(match_pca)
+```
+
+També podem visualitzar la qualitat de representació de les variables en el mapa de factors. Ho fem accedint a la variable `cos2` de l'objecte que hem creat prèviament.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+corrplot(match_var$cos2[, 1:2], is.corr = FALSE)
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+fviz_cos2(match_pca, choice = "var", axes = 1:2)
+```
+
+Veiem que totes 3 variables tenen un `cos2` igual a **1**. Per tant, sabem que amb 2 components es poden representar perfectament. Això té molt sentit perquè les 3 estan molt relacionades entre elles.
+
+Finalment, també visualitzem la contribució de les variables PCA fent servir la funció `fviz_pca_var`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+fviz_pca_var(match_pca,
+             col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE
+             )
+```
+
+En aquest cas és fàcil de veure que totes tres variables aporten per igual. També es veu com els gols marcats per l'equip local i els marcats per l'equip visitant no apunten cap a la mateixa direcció, però tampoc en direccions oposades. Això vol que estan una mica correlacionades. També veiem que totes dos estan bastant correlacionades amb els gols totals en un partit.
+
+#### **Player Attributes**: {-}
+##### Calcular els components principals {-}
+
+Utilitzem la funció `prcomp` per fer una anàlisi de les components principals de la taula:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+player_attributes_pca <- prcomp(df_player_attributes_nor, center = TRUE, scale. = TRUE)
+
+summary(player_attributes_pca)
+```
+
+En aquest cas obtenim moltes components principals més, en concret n'hi ha 42. Però veiem que la primera ja explica un **0,3846** de la variabilitat del total de dades, i que a partir del tretzè component s'explica menys de **0,1099**.
+
+Per poder fer servir el mètode de **Kàiser** hem de calcular la variància dels components principals a partir de la desviació estàndard:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+var_acc <- player_attributes_pca$sdev^2
+
+var_acc
+var_acc > 1
+```
+
+Seguint aquest mètode, escollim els components **PCA1**, **PCA2**, **PCA3**, **PCA4**, **PCA5** i **PCA6**.
+
+La funció `get_pca_var(...)` ens retorna un objecte que es pot fer servir per seleccionar els elements principals que hem triat. En aquest cas mostrem les coordenades que ens serveixen per Generació del un diagrama de dispersió:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+player_attributes_var <- get_pca_var(player_attributes_pca)
+head(player_attributes_var$coord[, 1:6])
+```
+
+##### Mostrar el PCA {-}
+
+A continuació, mostrem un histograma per veure el pes total dels components sobre el conjunt de dades:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ev <- get_eig(player_attributes_pca)
+ev
+fviz_eig(player_attributes_pca)
+```
+
+També podem visualitzar la qualitat de representació de les variables en el mapa de factors. Ho fem accedint a la variable `cos2` de l'objecte que hem creat prèviament.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+corrplot(player_attributes_var$cos2[, 1:6], is.corr = FALSE)
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+fviz_cos2(player_attributes_pca, choice = "var", axes = 1:2)
+```
+
+En aquesta taula amb tantes variables és més complex que es puguin veure representades amb només 2 dimensions. Veiem que la que té un valor `cos2` més alt és `ball_control`.
+
+Finalment, també visualitzem la contribució de les variables PCA fent servir la funció `fviz_pca_var`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+fviz_pca_var(player_attributes_pca,
+             col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE
+             )
+```
+
+Aquí podem veure que les variables que més contribueixen són `ball_control`, `standing_tackle` i `dribbling` entre algunes altres que també contribueixen molt. Les que menys són les variables que tenen a veure amb la data de naixement. També veiem que més o menys totes van en la mateixa direcció, excepte els atributs de porter. També veiem com el pes i l'alçada no estan gens relacionades amb l'agilitat.
+
+#### **Team Attributes**: {-}
+##### Calcular els components principals {-}
+
+Utilitzem la funció `prcomp` per fer una anàlisi de les components principals de la taula:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+team_attributes_pca <- prcomp(df_team_attributes_nor, center = TRUE, scale. = TRUE)
+
+summary(team_attributes_pca)
+```
+
+En aquesta taula hem aconseguit 9 components principals. Veiem com la proporció de la variabilitat total està molt més repartida. El primer component només n'explica **0,1992**, i a partir d'aquí, la resta en van tenint menys.
+
+Per poder fer servir el mètode de **Kàiser** hem de calcular la variància dels components principals a partir de la desviació estàndard:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+var_acc <- team_attributes_pca$sdev^2
+
+var_acc
+var_acc > 1
+```
+
+Seguint aquest mètode, escollim els components **PCA1**, **PCA2**, **PCA3** i **PCA4**.
+
+La funció `get_pca_var(...)` ens retorna un objecte que es pot fer servir per seleccionar els elements principals que hem triat. En aquest cas mostrem les coordenades que ens serveixen per Generació del un diagrama de dispersió:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+team_attributes_var <- get_pca_var(player_attributes_pca)
+head(team_attributes_var$coord[, 1:4])
+```
+
+##### Mostrar el PCA {-}
+
+A continuació, mostrem un histograma per veure el pes total dels components sobre el conjunt de dades:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ev <- get_eig(team_attributes_pca)
+ev
+fviz_eig(team_attributes_pca)
+```
+
+També podem visualitzar la qualitat de representació de les variables en el mapa de factors. Ho fem accedint a la variable `cos2` de l'objecte que hem creat prèviament:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+corrplot(team_attributes_var$cos2[, 1:4], is.corr = FALSE)
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+fviz_cos2(team_attributes_pca, choice = "var", axes = 1:2)
+```
+
+En aquesta taula ja no hi ha tantes variables, però també hem obtingut valors `cos2` relativament baixos. L'única variable que destaca amb un valor alt és `defencePressure`.
+
+Finalment, també visualitzem la contribució de les variables PCA fent servir la funció `fviz_pca_var`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+fviz_pca_var(team_attributes_pca,
+             col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE
+             )
+```
+
+En aquest gràfic es pot observar que la variable que més contribueix amb diferència és `defencePressure`. I les que menys `chanceCreationShooting` i `buildUpPlayDribbling`. En general, com és lògic, les variables del mateix grup tenen estan correlacionades.
+
+
+******
+# Resolució de la pràctica 2
+******
+
+Un cop hem fet l'anàlisi i tractament previ de les dades, ja podem aplicar models de *Machine Learning* per a obtenir més coneixement sobre les dades.
+
+Les taules que ens poden ser útils en aquest treball són les que contenen la informació bàsica modificada i les taules que han estat normalitzades:
+
+- `df_league`
+- `df_match`
+- `df_player_attributes`
+- `df_team_attributes`
+- `df_match_nor`
+- `df_player_attributes_nor`
+- `df_team_nor`
+
+
+## Model no supervisat K-*means*
+
+El primer que farem és aplicar un model no supervisat basat en el concepte de distància. En aquest cas fem servir **K-*means***.
+
+L'objectiu que tenim amb l'aplicació d'aquest algorisme és la d'aconseguir agrupar els jugadors segons les seues característiques. 
+
+En el futbol, s'acostuma a classificar els jugadors en quatre grans grups segons la posició del camp on juguen. Hi ha **porters**, **defenses**, **migcampistes** i **davanters**. Dins d'aquestes categories encara es poden fer més divisions. A més, hi ha molts matisos, ja que, depèn de l'estil de joc d'un equip les característiques dels jugadors hauran de ser diferents, encara que juguin en la mateixa posició. També s'ha de tenir en compte que un jugador pot ser versàtil i, per tant, pertànyer a diferents categories segons el partit.
+
+El que esperem d'aquesta anàlisi és veure com hi ha un grup clarament diferenciat de la resta, els porters. I volem veure com s'agrupen la resta de jugadors i si s'observen les categories esmentades anteriorment.
+
+
+### Generació del model
+
+Primer de tot, carreguem els paquets necessaris:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+packages <- c("cluster", "fpc")
+
+not_installed <- packages[!(packages %in% installed.packages())]
+if (length(not_installed) > 0) {
+  install.packages(not_installed, repos = "http:/cran.us.r-project.org")
+}
+lapply(packages, library, character.only = TRUE)
+```
+
+Ara ja podem implementar el model. Cal escollir el nombre de grups `k` en els que volem dividir les dades. Depenent de la `k` aconseguirem una qualitat del model més o menys bona. Com que no coneixem quina és la millor `k` el que farem serà provar diversos valors.
+
+En aquesta taula hi ha múltiples valors per a cada jugador, això es deu al fet que es tenen registres dels futbolistes en anys diferents. No volem tenir diversos registres per a cada un, així que ens quedem amb el seus atributs més recents:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player_attributes$date <- as.Date(df_player_attributes$date, "%Y-%m-%d")
+
+# https://stackoverflow.com/questions/30058708/select-row-with-most-recent-date-by-group
+df_player_clustering <- df_player_attributes[
+  tapply(1:nrow(df_player_attributes),
+  df_player_attributes$player_api_id,
+  function(ii) ii[which.max(df_player_attributes$date[ii])]), ]
+```
+
+No tots els atributs són útils a l'hora de realitzar l'agrupament. Així que ens quedem amb els que volem fer servir:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+remove_attr <- c(
+  "player_api_id",
+  "player_fifa_api_id",
+  "id.x",
+  "date",
+  "id.y",
+  "player_name",
+  "birthday"
+)
+df_player_clustering <- select(df_player_clustering, !all_of(remove_attr))
+```
+
+Convertim les variables categòriques a `factor`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player_clustering[sapply(df_player_clustering, is.character)] <- lapply(
+  df_player_clustering[sapply(df_player_clustering, is.character)],
+  as.factor
+)
+
+df_player_clustering[sapply(df_player_clustering, is.factor)] <-
+  data.matrix(df_player_clustering[sapply(df_player_clustering, is.factor)])
+```
+
+Aquest model no és compatible amb valors `NA`, `NaN` o `Inf`, així que els traiem:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player_clustering <-
+  df_player_clustering[is.finite(rowSums(df_player_clustering)), ]
+```
+
+Quan es treballa amb aquest algorisme, és millor estandaritzar les dades:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_player_clustering <- as.data.frame(scale(df_player_clustering))
+```
+
+Ara ja podem aplicar l'algorisme **K-*means*** amb. Inicialment fem servir 4 agrupacions:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+player_kmeans4 <- kmeans(df_player_clustering, 4)
+y_cluster4 <- player_kmeans4$cluster
+```
+
+I finalment visualitzem els clústers fent servir la funció `clusplot`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+clusplot(df_player_clustering, y_cluster4,
+         color = TRUE, shade = TRUE, labels = 4, lines = 0)
+```
+
+És difícil distingir subgrups dins del grup més gran. La tria inicial del valor de grups a dividir no sembla gens bona, ja que, molts registres sembla que poden pertànyer a qualsevol altre *clúster*. Malgrat tot, la funció `cusplot(...)` mostra les dades amb els dos primers components principals del PCA. En aquest cas, veiem que només s'explica el 49,32 % de la variabilitat, així que podria ser que estiguessin ben classificats.
+
+
+### Anàlisi de la qualitat
+
+Comprovarem diverses mesures de qualitat. A continuació mostrem quines són:
+
+- ***Silhouette***: Ens permet interpretar i validar la consistència entre clústers de dades. Mostra la similitud d'un objecte respecte a l'agrupació a la qual pertany. Els valors van des de -1 fins a 1, i com més proper a 1 més similitud hi ha.
+- ***Withinss***: La millor agrupació és la que té la menor suma dels quadrats de les distàncies dels punts de cada grup respecte al seu centre (*withinss*), amb la separació més gran entre centres de grups (*betweenss*).
+
+
+Provem quin és el millor nombre d'agrupacions per a aquestes dades:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+d <- daisy(df_player_clustering)
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+k_values <- 2:30
+results_1 <- data.frame(k = k_values,
+                      silhouette = double(length(k_values)),
+                      withinss = double(length(k_values)))
+
+for (i in k_values) {
+  fit        <- kmeans(df_player_clustering, i)
+  y_cluster  <- fit$cluster
+  sk         <- silhouette(y_cluster, dist(df_player_clustering))
+  results_1[i - 1, 2] <- mean(sk[, 3])
+  results_1[i - 1, 3] <- fit$tot.withinss
+}
+
+results_1
+```
+
+Volem provar si obtenim millors resultats amb una versió reduïda del *data frame*. Aquest cop, extraiem les característiques dels jugadors que no tenen a veure clarament amb el seu estil de joc. Suprimim les variables `overall_rating`, `potential`, `birth_year`, `birth_month`, `bmi` i `age`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+remove_attr <- c(
+  "overall_rating",
+  "potential",
+  "birth_year",
+  "birth_month",
+  "bmi",
+  "age"
+)
+df_player_clustering_rd <- select(df_player_clustering, !all_of(remove_attr))
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+d <- daisy(df_player_clustering_rd)
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+k_values <- 2:30
+results1_2 <- data.frame(k = k_values,
+                      silhouette = double(length(k_values)),
+                      withinss = double(length(k_values)))
+
+for (i in k_values) {
+  fit        <- kmeans(df_player_clustering_rd, i)
+  y_cluster  <- fit$cluster
+  sk         <- silhouette(y_cluster, dist(df_player_clustering_rd))
+  results1_2[i - 1, 2] <- mean(sk[, 3])
+  results1_2[i - 1, 3] <- fit$tot.withinss
+}
+
+results1_2
+```
+
+Els resultats són un pèl millors, així que ens quedem amb aquest *data frame*.
+
+Veiem que amb la mesura ***Silhouette*** el millor resultat l'ha obtingut el *clustering* amb **2** grups, sembla lògic perquè a simple vista ja es veuen fàcilment dos grups. L'agrupació amb 3 grups ha sigut la segona que ha donat més bon resultat, però té un resultat bastant pobre en comparació amb els 2 grups.
+
+Pel que fa a la mesura ***Withinss***, la millor `k` s'acostuma a escollir en el punt en què la corba de la següent gràfica es comença a estabilitzar. En aquest cas seria **14**.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+plot(results1_2$k, results1_2$withinss,
+    type = "o", col = "blue", pch = 0,
+    xlab = "Nombre de clústers", ylab = "Withinss")
+```
+
+Una altra forma de trobar la millor `k` és utilitzar la funció `kmeansruns` del paquet `fpc` que executa l’algorisme **K-*means*** com un conjunt de valors i selecciona el nombre de clústers que millor funcioni d’acord amb la silueta mitjana (asw) i Calinski-Harabasz (ch).
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+fit_ch  <- kmeansruns(df_player_clustering_rd,
+                      krange = k_values,
+                      criterion = "ch")
+fit_asw <- kmeansruns(df_player_clustering_rd,
+                      krange = k_values,
+                      criterion = "asw")
+
+print(fit_ch$bestk)
+print(fit_asw$bestk)
+```
+
+El valor obtingut amb tots dos casos és **2**.
+
+Per finalitzar, mostrem la gràfica `clusplot` amb catorze agrupacions:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+player_kmeans14 <- kmeans(df_player_clustering_rd, 14)
+y_cluster14 <- player_kmeans14$cluster
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+clusplot(df_player_clustering_rd, y_cluster14,
+         color = TRUE, shade = TRUE, labels = 4, lines = 0)
+```
+
+
+### Resultats
+
+Hem pogut observar que generalment el millor nombre d'agrupacions per a dividir els jugadors basant-nos en les seues característiques és dos. Ja hem comentat diverses vegades que es deu a la clara diferència que hi ha entre els jugadors de camp i els porters.
+
+També hem pogut veure que amb la mesura ***Withinss*** el millor nombre d'agrupacions és al voltant de catorze. Això, probablement es deu al fet que hi ha molts tipus de jugadors i, per tant, costa molt classificar-los en poques categories. Hem de pensar que hi ha 10 jugadors al camp, que desenvolupen un rol diferent. I a més els suplents, poden tenir altres funcions. En conseqüència, si a tot això li sumem el fet que certs jugadors amb característiques similars fan tasques diferents, ens trobem que costa molt de separar en *clústers*.
+
+## K-*means* amb una mètrica de distància diferent
+
+En aquest apartat aprofundim amb els algorismes de *clustering*. Aquest cop farem servir una mètrica de distància diferent i comparem els resultats obtinguts amb el model anterior.
+
+Per defecte, la funció `kmeans(...)` de la llibreria `stats` fa servir l'algorisme **Hartigan and Wong (1978)** per defecte amb la mètrica de distància **euclidiana**. En aquest cas, provarem amb la distància Manhattan.
+
+### Generació del model
+
+Comencem a generar el model. Aquest cop no ens serveix la funció `kmeans(...)` de la llibreria `stats` per què no ens permet canviar de mètrica de distància.
+
+Fem servir la funció `hclust(...)` de la llibreria `stat`. Aquesta funció s'utilitza per a generar un agrupament jeràrquic. L'agrupament jeràrquic és un mètode d'agrupament de punts de dades en grups (o *clústers*) basats en la seva similitud. Aquesta funció crea un arbre anomenat dendrograma, que mostra les relacions entre els punts de dades i els *clústers* als quals pertanyen.
+
+Primer, calculem la matriu de distàncies de les dades dels jugadors utilitzant la funció `dist(...)` amb la mètrica de distància `manhattan`. Després apliquem el model amb el mètode `ward.D`, que és un mètode que intenta minimitzar la variància entre les distàncies dels punts d'una agrupació a una altra:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+d_player_mh <- dist(df_player_clustering_rd, method = "manhattan")
+
+player_mh <- hclust(d_player_mh, method = "ward.D")
+plot(player_mh)
+```
+
+Podem observar que s'han generat dos grups principals ben diferenciats, però un d'ells conté moltes més subdivisions que l'altre. Podem deduir fàcilment que l'agrupament de més a l'esquerra és el dels porters i, l'altre és el dels jugadors de camp.
+
+
+### Anàlisi de la qualitat
+
+Tal com hem fet anteriorment, calculem la *silhouette* amb diversos valors de `k` per a conèixer quin és el nombre òptim d'agrupacions.
+
+Primer de tot, calculem el punt de tall per obtenir diferents clústers. Utilitzem la funció `cutree(...)` per obtenir diferents clústers a partir del resultat de `hclust(...)`:
+Després, calculem el punt de silueta per cada nombre de grups:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+k_values = 2:30
+
+results_mh <- data.frame(k = k_values,
+                        silhouette = double(length(k_values)))
+
+for (i in k_values) {
+  y_cluster  <- cutree(player_mh, k = i)
+  sk         <- silhouette(y_cluster, d_player_mh)
+  results_mh[i - 1, 2] <- mean(sk[, 3])
+}
+
+results_mh
+```
+
+Veiem com la `k` amb puntuació més alta torna a ser 2. Això ens indica que la millor forma de dividir els jugadors amb les dades que tenim és fent servir dos grups.
+
+
+### Comparació dels models
+
+Els resultats molt similars als obtinguts amb `kmeans(...)` amb la distància euclidiana. En tots dos casos hem trobat que la millor `k` era 2. La principal diferència que veiem entre tots dos mètodes és que el valor de la *silhouette* és més alt si fem servir `hclust(...)` amb distància *manhattan*.
+
+### Resultats
+
+Per concloure aquest apartat hem de comentar que ens ha semblat bastant difícil. No ha sigut fàcil trobar funcions i paquets d'R que facin *clustering* amb l'opció de modificar la mètrica de distància.
+
+La primera aproximació ha estat intentar modificar l'algorisme K-*means*, però utilitzant la distància *manhattan*. Això ho hem arribat a aconseguir amb la funció `kcca(...)`, però després no hem sigut capaços ni de visualitzar els agrupaments ni de fer-li una anàlisi de la qualitat.
+
+Finalment, hem decidit canviar d'algorisme no supervisat i fer servir la funció `hclust(...)` combinada amb la distància *manhattan*. Aquesta funció ens permet canviar fàcilment de mètrica de distància, però aquesta solució no ens ha acabat de convèncer per què no estem fent servir el mateix algorisme que en la primera secció.
+
+Malgrat tot, hem aconseguit fer una agrupació amb millor resultat que la del primer model. Per tant, valorem positivament el fet d'haver utilitzat `hclust(...)`.
+
+Per acabar, cal reiterar que sembla que amb les dades disponibles és complicat agrupar els jugadors. Un dels problemes que ja hem comentat és que cada jugador pot jugar a diverses posicions i que jugadors amb característiques similars juguin en posicions diferents. 
+
+També podria ser que el fet d'estar avaluant a tots els jugadors alhora pugui donar problemes. És a dir, els jugadors que són dolents tindran valoracions molt baixes en tots els camps. Això vol dir que, un davanter dolent no tindrà gaires diferències de puntuació entre les habilitats que se li pressuposen a un atacant entre les que ha de tenir un defensor. En canvi, un jugador molt bo, tindrà aquestes diferències molt marcades. En definitiva, creiem que seria interessant repetir aquest experiment filtrant per nivell dels jugadors.
+
+
+## DBSCAN i OPTICS
+
+En aquest apartat seguim amb els models no supervisats. Però, aquest cop, fem servir dos algorismes de *clustering* basats en la densitat. Aquests s'especialitzen a identificar zones d'alta concentració d'observacions separades entre si per zones amb una menor densitat d'observacions.
+
+
+### Aplicació dels algorismes
+#### DBSCAN
+El primer algorisme que apliquem és **DBSCAN**. Aquest necessita inicialment dos paràmetres:
+
+- **L'èpsilon $\epsilon$**: màxim veïnatge.
+- **Punts mínims** `minPts`: Nombre mínim de punts a l'$\epsilon$-veïnatge d'un punt.
+
+DBSCAN construeix esferes de radi $\epsilon$ que incloguin almenys `minPts` punts.
+
+Primer de tot, carreguem els paquets necessaris:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+packages <- c("dbscan")
+
+not_installed <- packages[!(packages %in% installed.packages())]
+if (length(not_installed) > 0) {
+  install.packages(not_installed, repos = "http:/cran.us.r-project.org")
+}
+lapply(packages, library, character.only = TRUE)
+```
+
+Ara realitzem una cerca per obtenir els paràmetres que ens donin el millor model (tenint en compte el mètode *Silhouette*): 
+```{r message= FALSE, warning=FALSE}
+d <- daisy(df_player_clustering_rd)
+
+eps_vec <- c(2, 2, 2, 2, 2,
+            5, 5, 5, 5, 5,
+            7, 7, 7, 7, 7,
+            10, 10, 10, 10, 10,
+            15, 15, 15, 15, 15,
+            20, 20, 20, 20, 20,
+            50, 50, 50, 50, 50)
+min_pts_vec <- c(2, 3, 5, 10, 15, 20, 100,
+                2, 3, 5, 10, 15, 20, 100,
+                2, 3, 5, 10, 15, 20, 100,
+                2, 3, 5, 10, 15, 20, 100,
+                2, 3, 5, 10, 15, 20, 100)
+results_dbscan <- data.frame(eps = eps_vec,
+                             minPts = min_pts_vec,
+                             silhouette = double(length(eps_vec)),
+                             clusters = integer(length(eps_vec)))
+
+for (i in 1:nrow(results_dbscan)) {
+  res <- dbscan(df_player_clustering_rd,
+                eps = eps_vec[i],
+                minPts = min_pts_vec[i])
+  sk <- silhouette(res$cluster, d)
+  value <- tryCatch(
+        {
+          val <- sk[, 3]
+          mean(val)
+        },
+        error = function(cond) {
+          return(NA)
+        })
+  results_dbscan[i, ]$silhouette <- value
+  results_dbscan[i, ]$clusters <- length(unique(res$cluster))
+}
+
+results_dbscan[order(results_dbscan$silhouette, decreasing = TRUE), ]
+results_dbscan <- na.omit(results_dbscan)
+max_dbscan_eps <- results_dbscan[which.max(results_dbscan$silhouette), 1]
+max_dbscan_pts <- results_dbscan[which.max(results_dbscan$silhouette), 2]
+max_dbscan_sk <-  max(results_dbscan$silhouette)
+```
+
+Podem observar que una de les millors combinacions és fent servir eps = `r max_dbscan_eps` i minPts = `r max_dbscan_pts`, que obtenen una ***Silhouette*** de `r max_dbscan_sk`. Aquest resultat podria ser millor, això significa que l'agrupació no és de tot bona. Veiem també que els millors models fan la separació amb dos grups, i que els segons millors models ho fan amb tres agrupacions.
+
+A continuació, ens guardem un dels models amb millor resultat:
+```{r message= FALSE, warning=FALSE}
+players_dbscan <- dbscan(df_player_clustering_rd,
+                         eps = max_dbscan_eps,
+                         minPts = max_dbscan_pts)
+players_dbscan
+```
+
+
+#### OPTICS
+L'algorisme **OPTICS** serveix per trobar *clústers* basats en la densitat en dades espacials. La idea bàsica és similar a DBSCAN, però soluciona un dels seus principals problemes, que és haver de detectar agrupacions en dades amb densitat variable. Es pot entendre com a una generalització de DBSCAN.
+
+El que fa és assignar una distància d'assolibilitat a cada punt del *dataset*. Necessita un radi $\epsilon$ i un criteri de densitat `minPts`, però a diferència de DBSCAN el valor del radi no determina la formació de clústers, sinó que serveix per reduir la complexitat de càlcul.
+```{r message= FALSE, warning=FALSE}
+players_optics <- optics(df_player_clustering_rd)
+players_optics
+```
+
+També es poden extraure agrupacions similars a DBSCAN. La funció `optics(...)` admet que se li especifiqui el paràmetre `eps_cl`, que és el llindar per identificar els *clústers* (`eps_cl` $\leq$ `eps`).
+```{r message= FALSE, warning=FALSE}
+eps_vec <- c(.1, 10, 40, 80, 100, 300, 1000, 
+             5000, 10000, 50000, 100000, 1000000)
+results_optics <- data.frame(eps_cl = eps_vec,
+                             silhouette = double(length(eps_vec)),
+                             clusters = integer(length(eps_vec)))
+
+for (i in 1:length(eps_vec)) {
+  res <- optics(df_player_clustering_rd)
+  res <- extractDBSCAN(res, eps_cl = eps_vec[i])
+  sk <- silhouette(res$cluster, d)
+  value <- tryCatch(
+        {
+          val <- sk[, 3]
+          mean(val)
+        },
+        error = function(cond) {
+          return(NA)
+        })
+  results_optics[i, ]$silhouette <- value
+  results_optics[i, ]$clusters <- length(unique(res$cluster))
+}
+
+results_optics[order(results_optics$silhouette, decreasing = TRUE), ]
+results_optics <- na.omit(results_optics)
+max_optics_eps <- results_optics[which.max(results_optics$silhouette), 1]
+max_optics_clt <- results_optics[which.max(results_optics$silhouette), 2]
+max_optics_sk <-  max(results_optics$silhouette)
+```
+
+Podem comprovar que els resultats són molt similars als de DBSCAN. En tots dos casos la millor ***Silhouette*** s'assoleix quan es fan servir dos *clústers*, a més el seu valor és igual `r max_optics_sk`. En la majoria de proves s'ha aconseguit el millor model, un dels valors de `eps_cl` amb els quals s'ha obtingut la màxima puntuació és `r max_optics_eps`.
+
+Ens guardem un dels millors models:
+```{r message= FALSE, warning=FALSE}
+res <- optics(df_player_clustering_rd)
+players_optics <- extractDBSCAN(res, eps_cl = max_optics_eps)
+players_optics
+```
+
+A continuació visualitzem el model creat. Un **diagrama d'accessibilitat** o *reachability plot* és un gràfic que mostra de forma visual la distància d'accessibilitat de cada punt. Les valls representen clústers i els cims indiquen els punts que estan entre les agrupacions. Com més profunda és la vall, més dens és el clúster. Els punts entre agrupacions possiblement són *outliers*.
+```{r message= FALSE, warning=FALSE}
+plot(players_optics)
+```
+
+
+### Resultats
+
+Els models obtinguts amb aquests algorismes són iguals als generats amb l'algorisme $K$-*means*. A més, els resultats obtinguts no són gaire satisfactoris perquè només aconseguim dividir els jugadors en dos categories, els porters i els jugadors de camp. És probable que amb les dades que tenim actualment no sigui fàcil diferenciar clarament entre els tipus de jugadors de camp.
+
+## Model de generació de regles a partir d'un arbre de decisió Quinlan C5.0
+### Preparació de les dades
+
+En l'exercici anterior no s'havia tingut en compte aquest cas d'ús. Per això, ara cal preparar les dades adequadament per a poder implementar-ho.
+
+El primer que fem és seleccionar els equips de forma única. És a dir, no volem un registre per a cada any, sinó un únic registre per a cada equip:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_team_attributes$date <- as.Date(df_team_attributes$date, "%Y-%m-%d")
+
+# https://stackoverflow.com/questions/30058708/select-row-with-most-recent-date-by-group
+df_team_tree <-
+  group_by(df_team_attributes, team_api_id) %>%
+  slice(which.max(date))
+df_team_tree <- as.data.frame(df_team_tree)
+```
+
+Després calculem el nombre de partits i victòries de cada equip i ho guardem al *data frame* `df_team_tree`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+calculate_home_games <- function(team_id, df_matches) {
+  return(length(which(df_matches$home_team_api_id == team_id)))
+}
+
+calculate_away_games <- function(team_id, df_matches) {
+  return(length(which(df_matches$away_team_api_id == team_id)))
+}
+
+calculate_home_wins <- function(team_id, df_matches) {
+  df_home_wins <- which(df_matches$home_team_api_id == team_id & 
+                        df_matches$home_team_goal > df_matches$home_team_goal)
+  home_wins <- length(df_home_wins)
+  return(home_wins)
+}
+
+calculate_away_wins <- function(team_id, df_matches) {
+  df_away_wins <- which(df_matches$away_team_api_id == team_id & 
+                        df_matches$away_team_goal > df_matches$home_team_goal)
+  away_wins <- length(df_away_wins)
+  return(away_wins)
+}
+
+df_team_tree$home_matches <- sapply(df_team_tree$team_api_id,
+                               function(i) calculate_home_games(i, df_match))
+df_team_tree$away_matches <- sapply(df_team_tree$team_api_id,
+                               function(i) calculate_away_games(i, df_match))
+df_team_tree$matches <- df_team_tree$home_matches + df_team_tree$away_matches
+
+df_team_tree$home_wins <- sapply(df_team_tree$team_api_id,
+                               function(i) calculate_home_wins(i, df_match))
+df_team_tree$home_wins_p <- df_team_tree$home_wins / df_team_tree$home_matches
+df_team_tree$away_wins <- sapply(df_team_tree$team_api_id,
+                               function(i) calculate_away_wins(i, df_match))
+df_team_tree$away_wins_p <- df_team_tree$away_wins / df_team_tree$away_matches
+df_team_tree$wins <- df_team_tree$home_wins + df_team_tree$away_wins
+```
+
+Cada equip consta de molts atributs, alguns d'ells són similars. Seleccionem els que considerem rellevants i treiem la resta. Alguns d'ells són identificadors que no aporten res al model i la resta són les variables numèriques. Aquestes les traiem per què amb les variables categòriques contenen la mateixa informació de forma simplificada:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+keep_attr <- c(
+  "team_api_id",
+  "buildUpPlaySpeedClass",
+  "buildUpPlayDribblingClass",
+  "buildUpPlayPassingClass",
+  "buildUpPlayPositioningClass",
+  "chanceCreationPassingClass",
+  "chanceCreationCrossingClass",
+  "chanceCreationShootingClass",
+  "chanceCreationPositioningClass",
+  "defencePressureClass",
+  "defenceAggressionClass",
+  "defenceTeamWidthClass",
+  "defenceDefenderLineClass",
+  "matches",
+  "home_wins_p",
+  "away_wins_p",
+  "wins"
+)
+df_team_tree <- select(df_team_tree, all_of(keep_attr))
+```
+
+També cal crear la variable *booleana* `local_win`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_match$local_win <- df_match$home_team_goal > df_match$away_team_goal
+```
+
+Com que els jugadors que han participat en cada partit no ens interessen, esborrem les columnes que contenen els seus identificadors:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+keep_attr <- c(
+  "id",
+  "league_id",
+  "season",
+  "stage",
+  "home_team_api_id",
+  "away_team_api_id",
+  "local_win"
+)
+df_match_tree <- select(df_match, all_of(keep_attr))
+```
+
+Ara ja podem fer una unió de les característiques de cada equip amb el *data frame* `match`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_match_tree <- merge(x = df_match_tree, y = df_team_tree,
+                       by.x = "home_team_api_id", by.y = "team_api_id")
+# Rename new columns to add the prefix "home_team_"
+names(df_match_tree) <- c("home_team_api_id",
+                          "id",
+                          "league_id",
+                          "season",
+                          "stage",
+                          "away_team_api_id",
+                          "local_win",
+                          "home_team_buildUpPlaySpeedClass",
+                          "home_team_buildUpPlayDribblingClass",
+                          "home_team_buildUpPlayPassingClass",
+                          "home_team_buildUpPlayPositioningClass",
+                          "home_team_chanceCreationPassingClass",
+                          "home_team_chanceCreationCrossingClass",
+                          "home_team_chanceCreationShootingClass",
+                          "home_team_chanceCreationPositioningClass",
+                          "home_team_defencePressureClass",
+                          "home_team_defenceAggressionClass",
+                          "home_team_defenceTeamWidthClass",
+                          "home_team_defenceDefenderLineClass",
+                          "home_team_matches",
+                          "home_team_home_wins_p",
+                          "home_team_away_wins_p",
+                          "home_team_wins")
+
+df_match_tree <- merge(x = df_match_tree, y = df_team_tree,
+                       by.x = "away_team_api_id", by.y = "team_api_id")
+# Rename new columns to add the prefix "away_team_"
+names(df_match_tree) <- c("home_team_api_id",
+                          "id",
+                          "league_id",
+                          "season",
+                          "stage",
+                          "away_team_api_id",
+                          "local_win",
+                          "home_team_buildUpPlaySpeedClass",
+                          "home_team_buildUpPlayDribblingClass",
+                          "home_team_buildUpPlayPassingClass",
+                          "home_team_buildUpPlayPositioningClass",
+                          "home_team_chanceCreationPassingClass",
+                          "home_team_chanceCreationCrossingClass",
+                          "home_team_chanceCreationShootingClass",
+                          "home_team_chanceCreationPositioningClass",
+                          "home_team_defencePressureClass",
+                          "home_team_defenceAggressionClass",
+                          "home_team_defenceTeamWidthClass",
+                          "home_team_defenceDefenderLineClass",
+                          "home_team_matches",
+                          "home_team_home_wins_p",
+                          "home_team_away_wins_p",
+                          "home_team_wins",
+                          "away_team_buildUpPlaySpeedClass",
+                          "away_team_buildUpPlayDribblingClass",
+                          "away_team_buildUpPlayPassingClass",
+                          "away_team_buildUpPlayPositioningClass",
+                          "away_team_chanceCreationPassingClass",
+                          "away_team_chanceCreationCrossingClass",
+                          "away_team_chanceCreationShootingClass",
+                          "away_team_chanceCreationPositioningClass",
+                          "away_team_defencePressureClass",
+                          "away_team_defenceAggressionClass",
+                          "away_team_defenceTeamWidthClass",
+                          "away_team_defenceDefenderLineClass",
+                          "away_team_matches",
+                          "away_team_home_wins_p",
+                          "away_team_away_wins_p",
+                          "away_team_wins")
+```
+
+Per poder utilitzar el *data frame* amb l'arbre C5.0 convertim totes les variables categòriques a `factors`:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+df_match_tree[sapply(df_match_tree, is.character)] <- lapply(
+  df_match_tree[sapply(df_match_tree, is.character)],
+  as.factor
+)
+
+df_match_tree$local_win <- as.factor(df_match_tree$local_win)
+str(df_match_tree)
+```
+
+Finalment, generem els conjunts de dades d'entrenament i de proves per a poder entrenar i estudiar la qualitat de l'arbre creat:
+```{r message=FALSE, warning=FALSE}
+y <- df_match_tree$local_win
+
+# Remove target attribute, plus unnecessary attributes
+remove_attr <- c("local_win", "home_team_api_id", "id", "season")
+X <- select(df_match_tree, !all_of(remove_attr))
+
+set.seed(1899)
+split_prop <- 3
+
+indexes <- sample(1:nrow(df_match_tree),
+  size = floor(((split_prop - 1) / split_prop) * nrow(df_match_tree))
+)
+
+train_X <- X[indexes, ]
+train_y <- y[indexes]
+test_X <- X[-indexes, ]
+test_y <- y[-indexes]
+```
+
+Ara podem procedir a entrenar el model.
+
+
+### Generació de l'arbre
+
+El primer que hem de fer és carregar la llibreria `C50` per a generar l'arbre i les llibreries `grid` i `ggplot2` per a visualitzar-lo:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+packages <- c("C50", "grid", "ggplot2")
+
+not_installed <- packages[!(packages %in% installed.packages())]
+if (length(not_installed) > 0) {
+  install.packages(not_installed, repos = "http:/cran.us.r-project.org")
+}
+lapply(packages, library, character.only = TRUE)
+```
+
+Ara creem el model utilitzant les dades d'entrenament. Fem servir l'argument `trials` per a fer servir *adaptative boosting*, que consisteix a agregar les prediccions de múltiples predictors per a construir diversos arbres de decisió i que aquests decideixin quina és la millor classe per a cada registre:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+c50_model <- C5.0(train_X, train_y, trials = 100)
+```
+
+Fem servir la funció `summary(...)` perquè ens retorni informació sobre el model que acabem de crear. Mostra la crida que l’ha creat, el nombre de registres i atributs que s’han fet servir, les regles dels diferents arbres que ha generat i fa una petita avaluació del model amb les dades d’entrenament.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+summary(c50_model)
+```
+
+Ara podem visualitzar el model. Per a fer-ho, hem de treure l’argument `rules`:
+```{r echo=TRUE, message=FALSE, warning=FALSE, fig.width=40, fig.height=12}
+c50_model <- C5.0(train_X, train_y, trials = 100)
+plot(c50_model, gp = gpar(fontsize = 9.5))
+```
+
+Com que és un arbre amb moltes regles, es veu una imatge molt petita, però si hi cliquem amb el botó dret del ratolí i l’obrim en una pestanya nova es pot ampliar.
+
+Una de les opcions és eliminar aquelles variables que aporten poc al model.
+
+Per a fer-ho, utilitzem la funció anomenada `C5imp(...)` que mostra la importància de cada atribut segons la mètrica escollida. La mètrica `usage` es calcula la importància a partir del percentatge de mostres del conjunt d’entrenament que acaben a un node terminal després de la divisió. D’aquesta manera, tenim que la primera variable a separar el conjunt té un valor de 100. A partir, d’aquesta, la resta tenen valors més xics. la mètrica `splits` la importància es calcula a partir del percentatge de separacions associades a cada variable.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+imp_usage <- C5imp(c50_model, metric = "usage")
+imp_splits <- C5imp(c50_model, metric = "splits")
+
+row_names <- sort(rownames(imp_usage))
+imp_usage_sort <- imp_usage[order(rownames(imp_usage)), ]
+imp_splits_sort <- imp_splits[order(rownames(imp_splits)), ]
+
+df_imp <- data.frame(
+  attribute = row_names,
+  usage = imp_usage_sort,
+  splits = imp_splits_sort
+)
+df_imp
+```
+
+Fem servir la informació de les dos mètriques per a generar un conjunt dels atributs més rellevants:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+usage_threshold <- 10
+splits_threshold <- 6
+most_imp <- df_imp$attribute[
+  df_imp$usage > usage_threshold |
+  df_imp$splits > splits_threshold
+]
+test_imp_X <- test_X[most_imp]
+train_imp_X <- train_X[most_imp]
+```
+
+Ara procedim a entrenar i mostrar les regles del model:
+```{r message=FALSE, warning=FALSE, fig.width=40, fig.height=12}
+c50_model_imp <- C5.0(train_imp_X, train_y, rules = TRUE, trials = 100)
+summary(c50_model_imp)
+```
+
+Seguim obtenint moltes regles, per tant, el que hem de fer ara és podar l'arbre. La llibreria `C50` ens permet especificar si volem fer servir mètodes de poda, com per exemple `winnow`, que fa una selecció dels atributs i `noGlobalPruning`, que simplifica l'arbre:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+c50_model_prune <- C5.0(train_imp_X, train_y, rules = TRUE,
+                        control = C5.0Control(winnow = TRUE))
+summary(c50_model_prune)
+```
+
+A continuació fem una breu explicació de les regles extretes:
+
+- Si l'equip visitant té un percentatge de victòries fora de casa superior al 53,7 %, llavors el local no guanyarà.
+- Si l'equip local té un percentatge de victòries fora de casa superior al 36,8 % i juguen a fer passades llargues, llavors el local no guanyarà.
+- Si l'equip visitant té un percentatge de victòries fora de casa superior al 23,2 %, i l'equip local té un percentatge de victòries fora inferior al 36,9 %, llavors el local no guanyarà.
+- Si l'equip visitant té un percentatge de victòries fora de casa superior al 15,6 %, l'equip local té un percentatge de victòries fora inferior al 36,8 %, i les victòries de l'equip local són inferiors a 33, llavors el local no guanyarà.
+- Si l'equip visitant té un percentatge de victòries fora de casa inferior al 53,7 %, l'equip local té un percentatge de victòries fora superior al 36,8 %, i el tipus de passades de l'equip local són curtes o barrejades, llavors el local guanyarà.
+- Si l'equip visitant té un percentatge de victòries fora de casa inferior al 23,2 %, i les victòries de l'equip local són inferiors a 33, llavors el local guanyarà.
+- Si l'equip visitant té un percentatge de victòries fora de casa inferior al 15,6 %, llavors el local guanyarà.
+
+Com podem veure, el model dona molta importància al rediment passat dels equips, de fet, la variable que més usa és la proporció de victòries fora de casa de l'equip visitant.
+
+I ara el visualitzem:
+```{r echo=TRUE, message=FALSE, warning=FALSE, fig.width=40, fig.height=12}
+c50_model_prune <- C5.0(train_imp_X, train_y,
+                        control = C5.0Control(winnow = TRUE))
+plot(c50_model_prune, gp = gpar(fontsize = 9.5))
+```
+
+Com podem comprovar, hem obtingut un arbre molt més senzill i més fàcil d'explicar.
+
+
+### Anàlisi de la qualitat
+
+En total hem creat tres models diferents basats en els arbres C5.0 de Quinlan. Hem pogut veure la seua representació gràfica i les regles en forma escrita. Però encara no sabem quins models funcionen millor. Per a fer-ho, hem d'estudiar la seua qualitat mostrant la matriu de confusió per a cadascun dels arbres. A més, calculem la seua precisió (*precision*), la sensibilitat (*recall*) i la f-*measure* per tenir unes mètriques que ens ajudin a escollir el millor model.
+
+Carreguem el paquet `gmodels` per a poder fer servir la funció `CrossTable(...)`, que calcula la matriu de confusió:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+packages <- c("gmodels")
+
+not_installed <- packages[!(packages %in% installed.packages())]
+if (length(not_installed) > 0) {
+  install.packages(not_installed, repos = "http:/cran.us.r-project.org")
+}
+lapply(packages, library, character.only = TRUE)
+```
+
+A continuació, carreguem les funcions que ens ajudaran a estudiar la qualitat:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+calculate_accuracy <- function(predicted, correct) {
+  return(sum(predicted == correct) / length(predicted))
+}
+
+calculate_precision <- function(predicted, correct) {
+  cross_table <- gmodels::CrossTable(correct, predicted,
+    prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+    dnn = c("Reality", "Prediction")
+  )
+
+  precision <- cross_table$prop.col[2, 2]
+  return(precision)
+}
+
+calculate_recall <- function(predicted, correct) {
+  cross_table <- gmodels::CrossTable(correct, predicted,
+    prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+    dnn = c("Reality", "Prediction")
+  )
+
+  recall <- cross_table$prop.row[2, 2]
+  return(recall)
+}
+
+calculate_f_measure <- function(precision, recall) {
+  f_measure <- (precision * recall) / (precision + recall)
+  return(f_measure)
+}
+```
+
+Creem un *data frame* on guardarem els resultats per a cada model:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+models_names <- c("Basic", "Importance", "Pruned")
+df_tree_quality <- data.frame(model = models_names,
+                              accuracy = double(length(models_names)),
+                              precision = double(length(models_names)),
+                              recall = double(length(models_names)),
+                              f_measure = double(length(models_names)))
+```
+
+Ara, procedim a calcular les diferents mètriques per a cada model:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+predicted_labels <- predict(c50_model, test_X, type = "class")
+
+df_tree_quality[1, ]$accuracy <- calculate_accuracy(predicted_labels, test_y)
+df_tree_quality[1, ]$precision <- calculate_precision(predicted_labels, test_y)
+df_tree_quality[1, ]$recall <- calculate_recall(predicted_labels, test_y)
+df_tree_quality[1, ]$f_measure <-
+  calculate_f_measure(df_tree_quality[1, ]$precision,
+                      df_tree_quality[1, ]$recall)
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+predicted_labels <- predict(c50_model_imp, test_imp_X, type = "class")
+
+df_tree_quality[2, ]$accuracy <- calculate_accuracy(predicted_labels, test_y)
+df_tree_quality[2, ]$precision <- calculate_precision(predicted_labels, test_y)
+df_tree_quality[2, ]$recall <- calculate_recall(predicted_labels, test_y)
+df_tree_quality[2, ]$f_measure <-
+  calculate_f_measure(df_tree_quality[2, ]$precision,
+                      df_tree_quality[2, ]$recall)
+```
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+predicted_labels <- predict(c50_model_prune, test_imp_X, type = "class")
+
+df_tree_quality[3, ]$accuracy <- calculate_accuracy(predicted_labels, test_y)
+df_tree_quality[3, ]$precision <- calculate_precision(predicted_labels, test_y)
+df_tree_quality[3, ]$recall <- calculate_recall(predicted_labels, test_y)
+df_tree_quality[3, ]$f_measure <-
+  calculate_f_measure(df_tree_quality[3, ]$precision,
+                      df_tree_quality[3, ]$recall)
+df_tree_quality
+```
+
+Veiem com els resultats són molt similars entre tots els models. El model que té una f-*measure* més alta és el que està filtrat amb les variables més importants. També veiem com l'arbre podat té una precisió un pèl més alta que la resta, però amb la pitjor sensibilitat. 
+
+Queda clar que el fet de reduir el nombre de regles no afecta negativament a la qualitat del model. Per això, ens quedem amb l'últim, ja que, amb resultats similars (encara que pitjors) és molt més fàcil d'explicar.
+
+
+### Resultats
+
+Els resultats dels models no són els desitjats, però almenys hem aconseguit descriure en poques regles si l'equip local guanyarà o no.
+
+Els motius pels quals no ha acabat de funcionar són que el resultat d'un partit de futbol és molt complicat d'endevinar. Hi intervenen molts factors i ni les persones més expertes són capaces de fer una predicció fiable.
+
+També és possible que aquest tipus de models basats en arbres de decisió no siguin adequats per a resoldre aquest problema.
+
+Els tres arbres generats s'han basat principalment en els resultats històrics dels equips. Això té molt sentit, ja que, si veiem que s'enfronten equips amb una diferència de qualitat molt gran és fàcil deduir que l'equip més bo guanyarà.
+
+La resta d'informació proporcionada als models tenia en compte l'estil de joc dels equips. Pel que sembla, l'estil de joc no és gaire determinant de cara a predir qui guanyarà.
+
+De cara a futurs anàlisis, seria molt interessant afegir informació dels equips. Per exemple, es podria afegir els gols per partit que marquen, o la valoració mitjana dels jugadors de la plantilla. Això no s'ha fet en aquesta versió perquè aquesta informació no era fàcil de trobar. Per afegir-la, cal fer càlculs i creuar dades entre les taules i malauradament, no s'ha disposat del temps necessari per a fer-ho.
+
+
+## Model supervisat Random Forest
+
+En la secció anterior hem vist com l'arbre de decisió C5.0 de Quinlan no ha donat gaires bons resultats. En aquesta secció aplicarem el model supervisat ***Random Forest***. Aquest es basa a crear molts arbres de decisió diferents i fer-los servir per a prendre decisions en conjunt.
+
+El que volem predir és el mateix que en l'apartat anterior, és a dir, si l'equip local guanyarà el partit. Per a que els models siguin comparables utilitzem les mateixes dades que anteriorment.
+
+Abans de res, carreguem la llibreria `randomForest` que és la que ens permetrà entrenar el model:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+packages <- c("randomForest")
+
+not_installed <- packages[!(packages %in% installed.packages())]
+if (length(not_installed) > 0) {
+  install.packages(not_installed, repos = "http:/cran.us.r-project.org")
+}
+lapply(packages, library, character.only = TRUE)
+```
+
+
+### Generació del model
+
+Ara que hem definit la tasca i ja hem carregat els paquets necessaris, ja podem generar el model.
+
+Ho fem amb la funció `randomForest(...)`. Aquesta admet el paràmetre `ntree` que serveix per indicar el nombre d'arbres a crear. Escollim un nombre alt per assegurar-nos que cada fila es prediu diverses vegades:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+rf_model <- randomForest(x = train_X, y = train_y, ntree = 5000)
+rf_model
+```
+
+
+### Anàlisi de la qualitat
+
+Ara que ja tenim el model creat, podem avaluar-ne la seua qualitat. Fem servir les mateixes mètriques que abans, per tant, no cal carregar cap funció nova:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+predicted_labels <- predict(rf_model, test_X, type = "class")
+
+df_tree_quality[4, ]$model <- "Random Forest"
+df_tree_quality[4, ]$accuracy <- calculate_accuracy(predicted_labels, test_y)
+df_tree_quality[4, ]$precision <- calculate_precision(predicted_labels, test_y)
+df_tree_quality[4, ]$recall <- calculate_recall(predicted_labels, test_y)
+df_tree_quality[4, ]$f_measure <-
+  calculate_f_measure(df_tree_quality[4, ]$precision,
+                      df_tree_quality[4, ]$recall)
+
+df_tree_quality
+```
+
+Com podem veure, els resultats són molt similars que els obtinguts amb els arbres de decisió C5.0 de Quinlan. Malgrat tot, aquests tenen la sensibilitat una mica més alta que la resta, però, en canvi, perden precisió. Si ens basem en la f-*measure* podem determinar que és el segon o tercer (depèn de l'execució) millor model dels quatre que hem creat. Això ens deixa en la mateixa situació que en la que estàvem, ja que, no hem assolit un model prou fiable per a predir si el guanyador del partit serà l'equip local.
+
+
+### Resultats
+
+El que podem concloure d'aquestes anàlisis és que probablement tots els models basats en arbres de decisió aconsegueixin uns resultats similars. Estaria bé provar amb un altre tipus d'algorismes per a saber si funcionen millor o pitjor.
+
+En tot cas, el que és més probable que estigui passant és que les dades són insuficients per a intentar predir això. Hauríem de profunditzar en la recollida de dades i calcular les noves característiques que ja s'han comentat en l'apartat anterior.
+
+
+## Limitacions i riscos del *dataset*
+
+Després d'analitzar i treballar amb aquest conjunt de dades és important, de cara a nous treballs, destacar els riscos que comporta utilitzar-lo. A continuació, esmentem alguns dels perills que ens podem trobar:
+
+- *Dataset* molt gran, és complicat poder analitzar totes les dades, per tant, cal fer una selecció de què es vol. Un dels riscos de fer això és que els fets a estudiar no donin un bon resultat. En canvi, podria ser que si s'haguessin avaluat unes altres taules s'haguessin aconseguit millors resultats. 
+- El fet de tenir la informació dividida en diferents taules també és una complicació perquè vol dir que la informació no està disponible directament, sinó que cal creuar les dades entre taules i fer els càlculs manualment per obtenir-la. Això implica haver de dedicar encara més temps a l'anàlisi inicial i obliga a tenir uns bons coneixements del llenguatge de programació utilitzat.
+- Una altra conseqüència que tingui tants registres és que amb un ordinador personal la memòria RAM es pot quedar curta i també realitzar alguns càlculs és molt lent i, per tant, es poden fer menys proves del que es voldrien. Evidentment, el més normal és trobar-nos amb taules amb moltes més entrades, però en aquests casos s'acostuma a treballar al núvol o amb ordinadors personals molt més potents.
+- El *dataset* semblava complet, però amb l'anàlisi prèvia ja es va veure que no ho era tant. Això fa que es perdin moltes dades útils. De fet, s'havia escollit aquest conjunt de dades pel fet de ser complet. Els altres *datasets* no tenien tantes mètriques, però és possible que tinguessin menys registres buits.
+- Una altra característica d'aquestes dades que cal tenir en compte és que no està prou actualitzat. Les dades van de l'any 2008 fins a l'any 2016. Això és un període de temps molt curt comparat amb els anys que fa que es juga a aquest esport. A més, ja fa sis anys que no s'actualitzen les dades. Per tant, és important que quan s'utilitzen aquestes dades es tingui clar que no poden ser representatives ni de tot el futbol ni de la història més recent. Només serveixen per a analitzar-lo en aquell període en concret. Un exercici interessant podria consistir a comparar les conclusions extretes fent servir aquestes dades amb altres períodes de la història del futbol.
+
+## Conclusions
+
+Un cop acabat aquest projecte considerem important fer alguns apunts sobre aquest. En aquest apartat es comenten les principals limitacions que hem trobat, una explicació sobre com les hem solucionat i, finalment una valoració sobre el coneixement adquirit durant la realització de l'activitat.
+
+Com ja s'ha comentat en l'apartat anterior, durant la realització del treball s'han trobat algunes dificultats inesperades que han complicat el projecte. A continuació esmentem algunes d'elles:
+
+- Les dades tenien una certa complexitat, ja que, la documentació era escassa.
+- Les dades estaven distribuïdes en múltiples taules. Això implicava que alguns atributs no estiguessin disponibles de forma fàcil.
+- S'esperava que el conjunt de dades tingués moltes més variables útils. Ja hem vist que n'hi havia moltes d'interessants que estaven buides o mal formatades. Això ha implicat una pèrdua d'informació molt gran.
+- Les dades ocupaven un gran volum en memòria. Per a consultar-les no era un problema, però quan s'intentava treballar amb elles la memòria RAM s'esgotava ràpidament.
+
+Les solucions que s'han trobat per a les anteriors dificultats han sigut:
+
+- Estudiar a consciència de les dades fins a entendre com estaven organitzades, el significat de cada atribut i el perquè hi havia identificadors repetits.
+- Per evitar la dispersió de les variables similars, s'han unit en la mateixa taula les que tenien un significat semblant.
+- Per poder treballar amb aquestes dades ha calgut ometre les columnes que estaven malament i crear nous atributs a partir dels existents.
+- S'ha optimitzat el volum de dades carregades en memòria en un mateix instant. El que s'ha fet ha sigut esborrar els *data frames* i variables auxiliars a mesura que deixaven de ser útils. D'aquesta manera s'ha pogut treballar evitant que l'ordinador es pengés.
+
+Malgrat la poca experiència en solucionar aquest tipus de problemes, crec que en general ens n'hem sortit de forma satisfactòria.
+
+Per acabar, volem comentar que durant aquest projecte sobretot hem après que cal estudiar i entendre molt bé les dades abans de començar a tractar-les. També hem vist que si no es planifiquen correctament els punts a estudiar és molt probable que ens deixem coses durant el pretractament de les dades. Si això passa, el fet de tornar enrere i tractar un altre cop les dades acaba comportant una pèrdua de temps important.
+
+Malgrat que ja teníem una certa experiència realitzant projectes de mineria de dades, mai n'havíem dut a terme un de tan complet. Sempre havien sigut més curts i fàcils. Haver fet aquest exercici des del principi fins al final ens ha millorat la capacitat analítica i ens ha fet donar compte que les dades són vitals per aconseguir un bon resultat.
+
+També hem millorat molt amb l'ús del llenguatge R. Fins ara havíem acomplert petits projectes que ens havien donat una idea sobre com fer-lo anar. Però ara notem que anem molt més ràpids a l'hora de programar.
+
+A més, en el conjunt global de l'assignatura, també valorem molt el fet d'haver realitzat tantes pràctiques diferents, ja que, en cada una tocat temes diferents i ens ha ajudat a aprofundir en elles. Gràcies a elles també hem pogut recopilar una sèrie d'*snippets* que es podran aplicar en altres projectes.
+
+Finalment, voldríem comentar que aquesta assignatura ens ha semblat útil i completa perquè molt probablement podrem aplicar aquests coneixements en altres projectes laborals i personals.
+
+
+******
+# Bibliografia
+******
+
+Aquesta secció conté les pàgines web visitades durant el treball i d'on s'ha agafat idees per a l'elaboració del treball.
+
+## Carregar dades {-}
+- [Datacamp: Tutorial SQLite in R](https://www.datacamp.com/tutorial/sqlite-in-r)
+- [RSQLite: Use RSQLite](https://rsqlite.r-dbi.org/articles/rsqlite)
+- [SQL Tutorial: List tables](https://www.sqltutorial.org/sql-list-all-tables/)
+
+## EDA {-}
+- [IBM: Exploratory Data Analysis](https://www.ibm.com/cloud/learn/exploratory-data-analysis)
+- [Medium: What is Exploratory Data Analysis](https://towardsdatascience.com/exploratory-data-analysis-8fc1cb20fd15)
+- [Statology: How to perform univariate analysis in R](https://www.statology.org/univariate-analysis-in-r/)
+- [Geeks4Geeks: How to Perform Univariate Analysis in R?](https://www.geeksforgeeks.org/how-to-perform-univariate-analysis-in-r/)
+- [Tutorials Point: R - Pie Charts](https://www.tutorialspoint.com/r/r_pie_charts.htm)
+- [Statology: How to Plot Multiple Boxplots in One Chart in R](https://www.statology.org/multiple-boxplots-r/)
+- [Statology: How to Plot Categorical Data in R](https://www.statology.org/plot-categorical-data-in-r/)
+- [Richardlent: Multivariate Analysis with R](https://richardlent.github.io/post/multivariate-analysis-with-r/)
+- [R Coder: Correlation plot in R](https://r-coder.com/correlation-plot-r/)
+
+## Neteja i preparació {-}
+- [Stack Overflow: Remove category](https://stackoverflow.com/questions/74627215/how-to-remove-a-category-from-a-variable-in-r)
+- [Geek4Geeks: How to merge dataframes in R ?](https://www.geeksforgeeks.org/how-to-merge-dataframes-in-r/)
+- [Geek4Geeks: Change column name of a given DataFrame in R](https://www.geeksforgeeks.org/change-column-name-of-a-given-dataframe-in-r/)
+
+## Reducció de la dimensionalitat {-}
+- [Medium: PCA and SVD explained with numpy](https://towardsdatascience.com/pca-and-svd-explained-with-numpy-5d13b0d2a4d8)
+- [Datacamp: Principal Component Analysis in R Tutorial](https://www.datacamp.com/tutorial/pca-analysis-r)
+
+## K-Means {-}
+- [StackExchange: Distàncies de K-means](https://stats.stackexchange.com/questions/221144/was-it-as-valid-to-perform-k-means-on-a-distance-matrix-as-on-data-matrix-text)
+- [StackExchange: Distància euclidiana amb K-means](https://stats.stackexchange.com/questions/81481/why-does-k-means-clustering-algorithm-use-only-euclidean-distance-metric)
+- [RDocumentation: Kmeans](https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/kmeans)
+- [RDocumentation: Kcca](https://www.rdocumentation.org/packages/flexclust/versions/1.4-1/topics/kcca)
+
+A més, durant la realització del treball també s'ha consultat en algunes ocasions [ChatGPT](https://chat.openai.com/chat) per a orientar-nos a fer alguns càlculs. Sempre s'ha fet servir com a eina de suport i s'ha comprovat que el que deia era veritat. De fet, s'ha pogut demostrar, que en certs casos no és capaç de donar un codi vàlid en R.
